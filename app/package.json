@@ -1,0 +1,24 @@
+{
+  "name": "coordinchi",
+  "version": "0.1.0",
+  "main": "main.js",
+  "productName": "CoordInChI",
+  "description": "Coordination complex data for InChI",
+  "author": "Alex M. Clark",
+  "devDependencies": 
+  {
+    "electron": "^5.0.1",
+    "electron-packager": "^8.1.0"
+  },
+  "build": 
+  {
+    "appId": "org.iupac.inchi.CoordInChI",
+    "mac": 
+    {
+      "category": "public.app-category.productivity"
+    }
+  },
+  "scripts": 
+  {
+  }
+}
