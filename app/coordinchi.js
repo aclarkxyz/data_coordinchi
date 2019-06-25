@@ -16669,10 +16669,72 @@ var WebMolKit;
 })(WebMolKit || (WebMolKit = {}));
 var WebMolKit;
 (function (WebMolKit) {
+    const VALENCES = {
+        'H': [1],
+        'C': [4],
+        'N': [3],
+        'O': [2],
+        'Si': [4],
+        'P': [3, 5],
+        'S': [2, 4, 6],
+        'F': [1],
+        'Cl': [1, 3, 5, 7],
+        'Br': [1, 3, 5, 7],
+        'I': [1, 3, 5, 7],
+    };
+    const OXSTATES = {};
+    let AnalyseMoleculeType;
+    (function (AnalyseMoleculeType) {
+        AnalyseMoleculeType["BadValence"] = "badvalence";
+        AnalyseMoleculeType["OddOxState"] = "oxstate";
+    })(AnalyseMoleculeType = WebMolKit.AnalyseMoleculeType || (WebMolKit.AnalyseMoleculeType = {}));
+    class AnalyseMolecule {
+        constructor(mol) {
+            this.mol = mol;
+            this.results = [];
+        }
+        perform() {
+            let mol = this.mol;
+            WebMolKit.MolUtil.expandAbbrevs(mol, true);
+            for (let n = 1; n <= mol.numAtoms; n++) {
+                let extra = mol.atomExtra(n), extraMod = false;
+                for (let i = extra.length - 1; i >= 0; i--)
+                    if (extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESPATH) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESRING) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_ARENE)) {
+                        extra.splice(i, 1);
+                        extraMod = true;
+                    }
+                if (extraMod)
+                    mol.setAtomExtra(n, extra);
+                if (mol.atomAdjCount(n) == 0)
+                    continue;
+                let el = mol.atomElement(n);
+                let wantVal = VALENCES[el], wantOx = OXSTATES[el];
+                if (!wantVal && !wantOx)
+                    continue;
+                let hyd = mol.atomHydrogens(n);
+                let valence = -mol.atomCharge(n) + mol.atomUnpaired(n) + hyd;
+                let oxstate = mol.atomCharge(n) + hyd;
+                for (let b of mol.atomAdjBonds(n)) {
+                    let o = mol.bondOrder(b);
+                    valence += o;
+                    oxstate += o % 2;
+                }
+                if (wantVal && wantVal.indexOf(valence) < 0)
+                    this.results.push({ 'type': "badvalence", 'atom': n, 'value': valence });
+                if (wantOx && wantOx.indexOf(oxstate) < 0)
+                    this.results.push({ 'type': "oxstate", 'atom': n, 'value': oxstate });
+            }
+            return this.results;
+        }
+    }
+    WebMolKit.AnalyseMolecule = AnalyseMolecule;
+})(WebMolKit || (WebMolKit = {}));
+var WebMolKit;
+(function (WebMolKit) {
     class MainPanel {
         constructor(root) {
             this.root = root;
-            $('body').css('overflow', 'hidden');
+            $('body').css('overflow', 'scroll');
             root.css('width', '100%');
             root.css('height', document.documentElement.clientHeight + 'px');
             $(window).resize(() => this.onResize());
@@ -16693,202 +16755,151 @@ var WebMolKit;
     class CoordPanel extends WebMolKit.MainPanel {
         constructor(root) {
             super(root);
-            this.sketcher = new WebMolKit.Sketcher();
-            this.filename = null;
             this.proxyClip = new WebMolKit.ClipboardProxy();
+            this.filename = null;
+            this.ds = null;
+            this.tableResults = null;
             const { clipboard } = require('electron');
             this.proxyClip.getString = () => clipboard.readText();
             this.proxyClip.setString = (str) => clipboard.writeText(str);
             this.proxyClip.canAlwaysGet = () => true;
-            let w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-            this.sketcher.setSize(w, h);
-            this.sketcher.defineClipboard(this.proxyClip);
-            this.sketcher.setup(() => this.sketcher.render(root));
-        }
-        setMolecule(mol) {
-            this.sketcher.defineMolecule(mol);
+            document.title = 'Coordination Analysis';
+            this.policy = WebMolKit.RenderPolicy.defaultColourOnWhite();
+            this.policy.data.pointScale = 15;
+            this.effects = new WebMolKit.RenderEffects();
+            this.measure = new WebMolKit.OutlineMeasurement(0, 0, this.policy.data.pointScale);
+            this.build();
         }
         loadFile(filename) {
-            const fs = require('fs');
-            fs.readFile(filename, 'utf-8', (err, data) => {
-                if (err)
-                    throw err;
-                let mol = WebMolKit.Molecule.fromString(data);
-                if (!mol) {
-                    let mdl = new WebMolKit.MDLMOLReader(data);
-                    mol = mdl.parse();
-                }
-                if (!mol) {
-                    alert('Molecule not readable:\n\n' + filename);
-                    return;
-                }
-                this.sketcher.defineMolecule(mol);
-                this.filename = filename;
-                this.updateTitle();
-            });
-        }
-        saveFile(filename) {
-            const fs = require('fs');
-            let mol = this.sketcher.getMolecule();
-            let content = '';
-            if (filename.endsWith('.mol'))
-                content = WebMolKit.MoleculeStream.writeMDLMOL(mol);
-            else
-                content = WebMolKit.MoleculeStream.writeNative(mol);
-            fs.writeFile(filename, content, (err) => {
-                if (err)
-                    alert('Unable to save: ' + err);
-            });
-        }
-        onResize() {
-            super.onResize();
-            let w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-            this.sketcher.changeSize(w, h);
+            const path = require('path');
+            if (!path.isAbsolute(filename)) {
+                filename = path.relative(path.resolve() + path.sep, filename);
+            }
+            this.inputFile.val(filename);
         }
         menuAction(cmd) {
-            if (cmd == 'new')
-                WebMolKit.openNewWindow('DrawPanel');
-            else if (cmd == 'open')
-                this.actionFileOpen();
-            else if (cmd == 'save')
-                this.actionFileSave();
-            else if (cmd == 'saveAs')
-                this.actionFileSaveAs();
-            else if (cmd == 'exportSVG')
-                this.actionFileExportSVG();
-            else if (cmd == 'undo')
-                this.sketcher.performUndo();
-            else if (cmd == 'redo')
-                this.sketcher.performRedo();
-            else if (cmd == 'cut')
-                this.actionCopy(true);
-            else if (cmd == 'copy')
-                this.actionCopy(false);
-            else if (cmd == 'copyMDL')
-                this.actionCopyMDL();
-            else if (cmd == 'paste')
-                this.actionPaste();
-            else if (cmd == 'delete')
-                new WebMolKit.MoleculeActivity(this.sketcher, WebMolKit.ActivityType.Delete, {}).execute();
-            else if (cmd == 'selectAll')
-                new WebMolKit.MoleculeActivity(this.sketcher, WebMolKit.ActivityType.SelectAll, {}).execute();
-            else if (cmd == 'zoomFull')
-                this.sketcher.autoScale();
-            else if (cmd == 'zoomIn')
-                this.sketcher.zoom(1.25);
-            else if (cmd == 'zoomOut')
-                this.sketcher.zoom(0.8);
-            else
-                console.log('MENU:' + cmd);
         }
-        actionFileOpen() {
+        build() {
+            let divMain = $('<div></div>').appendTo(this.root);
+            divMain.css({ 'padding': '0.5em' });
+            let divInput = $('<div></div>').appendTo(divMain);
+            divInput.css({ 'width': '100%', 'display': 'flex' });
+            let spanTitle = $('<span>File:</span>').appendTo(divInput);
+            spanTitle.css({ 'align-self': 'center' });
+            this.inputFile = $('<input type="text" size="40"></input>').appendTo(divInput);
+            this.inputFile.css({ 'flex-grow': '1', 'font': 'inherit', 'margin': '0 0.5em 0 0.5em' });
+            let btnPick = $('<button class="wmk-button wmk-button-default">Pick</button>').appendTo(divInput);
+            btnPick.css({ 'align-self': 'center' });
+            btnPick.click(() => this.pickFilename());
+            let paraRun = $('<p></p>').appendTo(divMain);
+            paraRun.css({ 'text-align': 'center' });
+            this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Analyse</button>').appendTo(paraRun);
+            this.btnAnalyse.click(() => this.runAnalysis());
+            this.divResults = $('<div></div>').appendTo(divMain);
+        }
+        pickFilename() {
             const electron = require('electron');
             const dialog = electron.remote.dialog;
             let params = {
-                'title': 'Open Molecule',
-                'properties': ['openFile'],
+                'title': 'Open DataSheet',
                 'filters': [
-                    { 'name': 'SketchEl Molecule', 'extensions': ['el'] },
-                    { 'name': 'MDL Molfile', 'extensions': ['mol'] }
+                    { 'name': 'Molecular DataSheet', 'extensions': ['ds'] }
                 ]
             };
             dialog.showOpenDialog(params, (filenames) => {
-                let inPlace = this.sketcher.getMolecule().numAtoms == 0;
-                if (filenames)
-                    for (let fn of filenames) {
-                        if (inPlace) {
-                            this.loadFile(fn);
-                            inPlace = false;
-                        }
-                        else
-                            WebMolKit.openNewWindow('DrawPanel', fn);
-                    }
+                if (filenames.length > 0)
+                    this.loadFile(filenames[0]);
             });
         }
-        actionFileSave() {
-            if (!this.filename) {
-                this.actionFileSaveAs();
+        runAnalysis() {
+            this.filename = null;
+            this.ds = null;
+            this.divResults.empty();
+            this.filename = this.inputFile.val();
+            if (!this.filename)
                 return;
-            }
-            let mol = this.sketcher.getMolecule();
-            if (mol.numAtoms == 0)
-                return;
-            this.saveFile(this.filename);
-        }
-        actionFileSaveAs() {
-            const electron = require('electron');
-            const dialog = electron.remote.dialog;
-            let params = {
-                'title': 'Save Molecule',
-                'filters': [
-                    { 'name': 'SketchEl Molecule', 'extensions': ['el'] },
-                    { 'name': 'MDL Molfile', 'extensions': ['mol'] }
-                ]
-            };
-            dialog.showSaveDialog(params, (filename) => {
-                this.saveFile(filename);
-                this.filename = filename;
-                this.updateTitle();
-            });
-        }
-        actionFileExportSVG() {
-        }
-        actionCopy(andCut) {
-            let input = this.sketcher.getState(), mol = input.mol;
-            let mask = WebMolKit.Vec.booleanArray(false, mol.numAtoms);
-            if (WebMolKit.Vec.anyTrue(input.selectedMask))
-                mask = input.selectedMask;
-            else if (input.currentAtom > 0)
-                mask[input.currentAtom - 1] = true;
-            else if (input.currentBond > 0) {
-                mask[mol.bondFrom(input.currentBond) - 1] = true;
-                mask[mol.bondTo(input.currentBond) - 1] = true;
-            }
-            else
-                mask = WebMolKit.Vec.booleanArray(true, mol.numAtoms);
-            let copyMol = WebMolKit.Vec.allTrue(mask) ? mol.clone() : WebMolKit.MolUtil.subgraphWithAttachments(mol, mask);
-            if (andCut) {
-                this.sketcher.clearSubject();
-                this.setMolecule(WebMolKit.MolUtil.subgraphMask(mol, WebMolKit.Vec.notMask(mask)));
-            }
-            const { clipboard } = require('electron');
-            clipboard.writeText(copyMol.toString());
-            this.sketcher.showMessage('Molecule with ' + copyMol.numAtoms + ' atom' + (copyMol.numAtoms == 1 ? '' : 's') + ' copied to clipboard.');
-        }
-        actionCopyMDL() {
-            let mol = this.sketcher.getMolecule();
-            if (WebMolKit.MolUtil.isBlank(mol)) {
-                this.sketcher.showMessage('Draw a molecule first.');
-                return;
-            }
-            const { clipboard } = require('electron');
-            let mdl = new WebMolKit.MDLMOLWriter(mol);
-            clipboard.writeText(mdl.write());
-            this.sketcher.showMessage('Molfile with ' + mol.numAtoms + ' atom' + (mol.numAtoms == 1 ? '' : 's') + ' copied to clipboard.');
-        }
-        actionPaste() {
-            const { clipboard } = require('electron');
-            let content = clipboard.readText();
-            if (!content) {
-                alert('Clipboard has no text on it.');
-                return;
-            }
+            const fs = require('fs');
+            let strXML = '';
             try {
-                let mol = WebMolKit.MoleculeStream.readUnknown(content);
-                this.sketcher.pasteMolecule(mol);
+                strXML = fs.readFileSync(this.filename).toString();
             }
             catch (ex) {
-                alert('Clipboard does not contain a recognisable molecule.');
-                return;
+                throw 'Unable to read file: ' + this.filename;
+            }
+            this.ds = WebMolKit.DataSheetStream.readXML(strXML);
+            if (this.ds == null)
+                throw 'Unable to parse file ' + this.filename;
+            this.startAnalysis();
+        }
+        startAnalysis() {
+            this.btnAnalyse.prop('disabled', true);
+            this.colMol = this.ds.firstColOfType(WebMolKit.DataSheet.COLTYPE_MOLECULE);
+            this.colError = this.ds.ensureColumn('Errors', WebMolKit.DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
+            this.colWarning = this.ds.ensureColumn('Warnings', WebMolKit.DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
+            this.setupHeadings();
+            this.processRow(0);
+        }
+        setupHeadings() {
+            this.tableResults = $('<table></table>').appendTo(this.divResults);
+            this.tableResults.css({ 'border': 'none' });
+            let tr = $('<tr></tr>').appendTo(this.tableResults);
+            tr.css('background-color', '#C0C0C0');
+            for (let n = -1; n < this.ds.numCols; n++) {
+                let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? WebMolKit.DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
+                let th = $('<th></th>').appendTo(tr);
+                th.css('text-align', ct == WebMolKit.DataSheet.COLTYPE_STRING ? 'left' : 'center');
+                th.text(title);
             }
         }
-        updateTitle() {
-            if (this.filename == null) {
-                document.title = 'SketchEl';
+        processRow(row) {
+            if (row >= this.ds.numRows || row > 10) {
+                this.finishAnalysis();
                 return;
             }
-            let slash = Math.max(this.filename.lastIndexOf('/'), this.filename.lastIndexOf('\\'));
-            document.title = 'SketchEl - ' + this.filename.substring(slash + 1);
+            let mol = this.ds.getMolecule(row, this.colMol);
+            let anal = new WebMolKit.AnalyseMolecule(mol);
+            anal.perform();
+            let error = [], warning = [];
+            for (let result of anal.results) {
+                if (result.type == "badvalence") {
+                    error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                }
+                else if (result.type == "oxstate") {
+                    warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                }
+            }
+            this.ds.setMolecule(row, this.colMol, anal.mol);
+            this.ds.setString(row, this.colError, error.join('\n'));
+            this.ds.setString(row, this.colWarning, warning.join('\n'));
+            let tr = $('<tr></tr>').appendTo(this.tableResults);
+            tr.css('background-color', row % 2 ? '#F0F0F0' : '#F8F8F8');
+            for (let n = -1; n < this.ds.numCols; n++) {
+                let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? WebMolKit.DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
+                let td = $('<td></td>').appendTo(tr);
+                let align = ct == WebMolKit.DataSheet.COLTYPE_STRING ? 'left' : 'center';
+                td.css({ 'text-align': align, 'vertical-align': 'center' });
+                if (n >= 0)
+                    td.css({ 'margin-left': '0.3em', 'margin-right': '0.3em' });
+                if (n < 0)
+                    td.text((row + 1).toString());
+                else if (this.ds.isNull(row, n)) { }
+                else if (ct == WebMolKit.DataSheet.COLTYPE_MOLECULE) {
+                    let layout = new WebMolKit.ArrangeMolecule(mol, this.measure, this.policy, this.effects);
+                    layout.arrange();
+                    layout.squeezeInto(0, 0, 300, 300);
+                    let gfx = new WebMolKit.MetaVector();
+                    new WebMolKit.DrawMolecule(layout, gfx).draw();
+                    gfx.normalise();
+                    let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
+                    let domSVG = $(gfx.createSVG()).appendTo(div);
+                }
+                else
+                    td.text(this.ds.getObject(row, n).toString());
+            }
+            setTimeout(() => this.processRow(row + 1), 1);
+        }
+        finishAnalysis() {
+            this.btnAnalyse.prop('disabled', false);
         }
     }
     WebMolKit.CoordPanel = CoordPanel;
@@ -16941,6 +16952,65 @@ var WebMolKit;
         bw.loadURL(url);
     }
     WebMolKit.openNewWindow = openNewWindow;
+})(WebMolKit || (WebMolKit = {}));
+var WebMolKit;
+(function (WebMolKit) {
+    class AnalyseDataSheets {
+        constructor(args) {
+            this.filenames = [];
+            for (let n = 0; n < args.length; n++) {
+                if (args[n].startsWith('-'))
+                    throw 'Unexpected argument: ' + args[n];
+                else
+                    this.filenames.push(args[n]);
+            }
+            if (this.filenames.length == 0)
+                throw 'Must provide at least one datasheet filename argument.';
+        }
+        exec() {
+            console.log('Analyzing files...');
+            const fs = require('fs');
+            for (let n = 0; n < this.filenames.length; n++) {
+                let fn = this.filenames[n];
+                console.log('  ' + (n + 1) + '/' + this.filenames.length + ': ' + fn);
+                let strXML = '';
+                try {
+                    strXML = fs.readFileSync(fn);
+                }
+                catch (ex) {
+                    throw 'Unable to read file: ' + fn;
+                }
+                let ds = WebMolKit.DataSheetStream.readXML(fn);
+                if (ds == null)
+                    throw 'Unable to parse file ' + fn;
+                this.analyse(ds);
+            }
+            console.log('Done.');
+        }
+        analyse(ds) {
+            let colMol = ds.firstColOfType(WebMolKit.DataSheet.COLTYPE_MOLECULE);
+            let colError = ds.ensureColumn('Errors', WebMolKit.DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
+            let colWarning = ds.ensureColumn('Warnings', WebMolKit.DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
+            for (let n = 0; n < ds.numRows; n++) {
+                let mol = ds.getMolecule(n, colMol);
+                let anal = new WebMolKit.AnalyseMolecule(mol);
+                anal.perform();
+                let error = [], warning = [];
+                for (let result of anal.results) {
+                    if (result.type == "badvalence") {
+                        error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                    }
+                    else if (result.type == "oxstate") {
+                        warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                    }
+                }
+                ds.setMolecule(n, colMol, anal.mol);
+                ds.setString(n, colError, error.join('\n'));
+                ds.setString(n, colWarning, warning.join('\n'));
+            }
+        }
+    }
+    WebMolKit.AnalyseDataSheets = AnalyseDataSheets;
 })(WebMolKit || (WebMolKit = {}));
 var WebMolKit;
 (function (WebMolKit) {

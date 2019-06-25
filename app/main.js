@@ -4,6 +4,7 @@
 	(c) 2019 InChI Trust
 */
 
+const fs = require('fs');
 const electron = require('electron');
 const {app, BrowserWindow} = electron;
 
@@ -23,7 +24,15 @@ for (let n = 0; n < argv.length; n++) if (argv[n] == 'app/main.js') {argv.splice
 argv.shift();
 for (let n = 0; n < argv.length; n++)
 {
-	if (argv[n].startsWith('-')) {}
+	/*if (argv[n] == '--analyze')
+	{
+		let cmds = [];
+		for (let i = n + 1; i < argv.length; i++) cmds.push(argv[i]);
+		eval(fs.readFileSync('app/coordinchi.js').toString());
+		new WebMolKit.AnalyseDataSheets(cmds).exec();
+		return;
+	}
+	elsea*/ if (argv[n].startsWith('-')) {}
 	else files.push(argv[n]);
 	// (... consider other options...)
 }

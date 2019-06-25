@@ -18,7 +18,7 @@ export class MainPanel
 {
 	constructor(public root:JQuery)
 	{
-		$('body').css('overflow', 'hidden');
+		$('body').css('overflow', 'scroll');
 
 		root.css('width', '100%');
 		root.css('height', document.documentElement.clientHeight + 'px');

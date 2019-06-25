@@ -15,7 +15,8 @@
 			"console": "integratedTerminal",
 			"args": 
 			[
-                //...
+                //"data/curated.ds"
+				"data/iupaclist.ds"
 			],
 			"protocol": "inspector"
 		},
