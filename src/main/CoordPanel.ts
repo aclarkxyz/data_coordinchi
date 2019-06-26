@@ -37,8 +37,10 @@ export class CoordPanel extends MainPanel
 	private filename:string = null;
 	private ds:DataSheet = null;
 	private colMol:number;
+	private colFormula:number;
 	private colError:number;
 	private colWarning:number;
+	private colFixed:number;
 	private tableResults:JQuery = null;
 	
 	protected policy:RenderPolicy;
@@ -90,8 +92,8 @@ export class CoordPanel extends MainPanel
 		else if (cmd == 'undo') this.sketcher.performUndo();
 		else if (cmd == 'redo') this.sketcher.performRedo();
 		else if (cmd == 'cut') this.actionCopy(true);
-		else if (cmd == 'copy') this.actionCopy(false);
-		else if (cmd == 'copyMDL') this.actionCopyMDL();
+		else*/ if (cmd == 'copy') document.execCommand('copy');
+		/*else if (cmd == 'copyMDL') this.actionCopyMDL();
 		else if (cmd == 'paste') this.actionPaste();
 		else if (cmd == 'delete') new MoleculeActivity(this.sketcher, ActivityType.Delete, {}).execute();
 		else if (cmd == 'selectAll') new MoleculeActivity(this.sketcher, ActivityType.SelectAll, {}).execute();
@@ -114,6 +116,7 @@ export class CoordPanel extends MainPanel
 		spanTitle.css({'align-self': 'center'});
 		this.inputFile = $('<input type="text" size="40"></input>').appendTo(divInput);
 		this.inputFile.css({'flex-grow': '1', 'font': 'inherit', 'margin': '0 0.5em 0 0.5em'});
+		this.inputFile.keypress((event:JQueryEventObject) => {if (event.keyCode == 13) this.runAnalysis();});
 		let btnPick = $('<button class="wmk-button wmk-button-default">Pick</button>').appendTo(divInput);
 		btnPick.css({'align-self': 'center'});
 		btnPick.click(() => this.pickFilename());
@@ -125,8 +128,7 @@ export class CoordPanel extends MainPanel
 
 		this.divResults = $('<div></div>').appendTo(divMain);
 
-		//let paraSave = $('<p></p>').appendTo(divMain);
-		//paraSave.css({'text-align': 'center'});
+		this.inputFile.focus();
 	}
 
 	private pickFilename():void
@@ -173,8 +175,10 @@ export class CoordPanel extends MainPanel
 		this.btnAnalyse.prop('disabled', true);
 
 		this.colMol = this.ds.firstColOfType(DataSheet.COLTYPE_MOLECULE);
+		this.colFormula = this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
 		this.colError = this.ds.ensureColumn('Errors', DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
 		this.colWarning = this.ds.ensureColumn('Warnings', DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
+		this.colFixed = this.ds.ensureColumn('Fixes', DataSheet.COLTYPE_STRING, 'Corrections that could be made unambiguously');
 
 		this.setupHeadings();
 		this.processRow(0);
@@ -199,32 +203,37 @@ export class CoordPanel extends MainPanel
 
 	private processRow(row:number):void
 	{
-		if (row >= this.ds.numRows || row > 10)
+		if (row >= this.ds.numRows)
 		{
 			this.finishAnalysis();
 			return;
 		}
 
-		let mol = this.ds.getMolecule(row, this.colMol);
-		let anal = new AnalyseMolecule(mol);
+		let mol = this.ds.getMolecule(row, this.colMol), formula = this.ds.getString(row, this.colFormula);
+		let anal = new AnalyseMolecule(mol, formula);
 		anal.perform();
 
-		let error:string[] = [], warning:string[] = [];
+		let error:string[] = [], warning:string[] = [], fixed:string[] = [];
 		for (let result of anal.results)
 		{
 			if (result.type == AnalyseMoleculeType.BadValence)
-			{
 				error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-			}
 			else if (result.type == AnalyseMoleculeType.OddOxState)
-			{
 				warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-			}
+			else if (result.type == AnalyseMoleculeType.WrongFormula)
+				error.push('Formula:' + result.text);
+			else if (result.type == AnalyseMoleculeType.NonElement)
+				error.push('NonElement:atom=' + result.atom + '[' + result.text + ']');
+			else if (result.type == AnalyseMoleculeType.FixCarbonyl)
+				fixed.push('FixedCarbonyl:atom=' + result.atom);
+			
+			else throw '?' + result.type;
 		}
 
 		this.ds.setMolecule(row, this.colMol, anal.mol);
 		this.ds.setString(row, this.colError, error.join('\n'));
 		this.ds.setString(row, this.colWarning, warning.join('\n'));
+		this.ds.setString(row, this.colFixed, fixed.join('\n'));
 
 		let tr = $('<tr></tr>').appendTo(this.tableResults);
 		tr.css('background-color', row % 2 ? '#F0F0F0' : '#F8F8F8');
@@ -234,7 +243,7 @@ export class CoordPanel extends MainPanel
 			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
 			let td = $('<td></td>').appendTo(tr);
 			let align = ct == DataSheet.COLTYPE_STRING ? 'left' : 'center';
-			td.css({'text-align': align, 'vertical-align': 'center'});
+			td.css({'text-align': align, 'vertical-align': 'center', 'white-space': 'pre-wrap'});
 			if (n >= 0) td.css({'margin-left': '0.3em', 'margin-right': '0.3em'});
 
 			if (n < 0) td.text((row + 1).toString());
@@ -252,6 +261,19 @@ export class CoordPanel extends MainPanel
 				let domSVG = $(gfx.createSVG()).appendTo(div);
 			}
 			else td.text(this.ds.getObject(row, n).toString());
+
+			// special deal for formula
+			if (n == this.colFormula && this.ds.isNull(row, n))
+			{
+				let divBtn = $('<div></div>').appendTo(td);
+				divBtn.css({'text-align': 'center'});
+				let btnFormula = $('<button class="wmk-button wmk-button-default">Use</button>').appendTo(divBtn);
+				btnFormula.click(() => 
+				{
+					td.text(anal.calcFormula);
+					this.ds.setString(row, this.colFormula, anal.calcFormula);
+				});
+			}
 		}
 
 		setTimeout(() => this.processRow(row + 1), 1);
@@ -260,6 +282,21 @@ export class CoordPanel extends MainPanel
 	private finishAnalysis():void
 	{
 		this.btnAnalyse.prop('disabled', false);
+
+		let paraSave = $('<p></p>').appendTo(this.divResults);
+		paraSave.css({'text-align': 'center'});
+		let btnSave = $('<button class="wmk-button wmk-button-primary">Save</button>').appendTo(paraSave);
+		btnSave.click(() => this.saveFile());
+	}
+
+	// write the current file back to disk
+	private saveFile():void
+	{
+		let strXML = DataSheetStream.writeXML(this.ds);
+
+		const fs = require('fs');
+		try {fs.writeFileSync(this.filename, strXML);}
+		catch (ex) {throw 'Unable to write file: ' + this.filename;}
 	}
 }
 

@@ -16681,50 +16681,154 @@ var WebMolKit;
         'Cl': [1, 3, 5, 7],
         'Br': [1, 3, 5, 7],
         'I': [1, 3, 5, 7],
+        'B': [3],
+        'Ne': [0],
+        'Ar': [0],
+        'Ge': [4],
+        'As': [3],
+        'Se': [2, 4, 6],
+        'Kr': [0],
+        'Te': [2, 4, 6],
+        'Xe': [0, 2, 4, 6],
+        'Rn': [0],
     };
-    const OXSTATES = {};
+    const OXSTATES = {
+        'Li': [1],
+        'Na': [1],
+        'K': [1],
+        'Rb': [1],
+        'Cs': [1],
+        'Fr': [1],
+        'Be': [2],
+        'Mg': [2],
+        'Ca': [2],
+        'Sr': [2],
+        'Ba': [2],
+        'Ra': [2],
+        'Al': [3],
+        'Ga': [3],
+        'In': [1, 3],
+        'Tl': [1, 3],
+        'Sn': [2, 4],
+        'Pb': [2, 4],
+        'Sb': [3, 5],
+        'Bi': [3, 5],
+        'Po': [2],
+        'At': [1],
+        'Sc': [3],
+        'Y': [3],
+        'Lu': [3],
+        'Ti': [2, 4],
+        'Zr': [4],
+        'Hf': [4],
+        'V': [5],
+        'Nb': [5],
+        'Ta': [5],
+        'Cr': [2, 3, 6],
+        'Mo': [2, 4, 6],
+        'W': [2, 4, 6],
+        'Mn': [1, 3, 5, 7],
+        'Tc': [7],
+        'Re': [1, 3],
+        'Fe': [0, 2, 3],
+        'Ru': [0, 2, 3],
+        'Os': [0, 2],
+        'Co': [0, 2, 3],
+        'Rh': [1, 3],
+        'Ir': [1, 3],
+        'Ni': [0, 2, 3],
+        'Pd': [0, 2],
+        'Pt': [0, 2],
+        'Cu': [1, 2],
+        'Ag': [1],
+        'Au': [1, 2],
+        'Zn': [2],
+        'Cd': [2],
+        'Hg': [2],
+    };
     let AnalyseMoleculeType;
     (function (AnalyseMoleculeType) {
         AnalyseMoleculeType["BadValence"] = "badvalence";
         AnalyseMoleculeType["OddOxState"] = "oxstate";
+        AnalyseMoleculeType["WrongFormula"] = "wrongformula";
+        AnalyseMoleculeType["NonElement"] = "nonelement";
+        AnalyseMoleculeType["FixCarbonyl"] = "fixcarbonyl";
     })(AnalyseMoleculeType = WebMolKit.AnalyseMoleculeType || (WebMolKit.AnalyseMoleculeType = {}));
     class AnalyseMolecule {
-        constructor(mol) {
+        constructor(mol, formula) {
             this.mol = mol;
+            this.formula = formula;
             this.results = [];
         }
         perform() {
-            let mol = this.mol;
+            let mol = this.mol.clone();
+            for (let n = 1; n <= mol.numAtoms; n++)
+                mol.setAtomExtra(n, WebMolKit.Vec.append(mol.atomExtra(n), 'xN:' + n));
+            for (let n = 1; n <= mol.numBonds; n++)
+                mol.setBondExtra(n, WebMolKit.Vec.append(mol.bondExtra(n), 'xN:' + n));
             WebMolKit.MolUtil.expandAbbrevs(mol, true);
-            for (let n = 1; n <= mol.numAtoms; n++) {
-                let extra = mol.atomExtra(n), extraMod = false;
-                for (let i = extra.length - 1; i >= 0; i--)
-                    if (extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESPATH) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESRING) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_ARENE)) {
-                        extra.splice(i, 1);
-                        extraMod = true;
-                    }
-                if (extraMod)
-                    mol.setAtomExtra(n, extra);
-                if (mol.atomAdjCount(n) == 0)
-                    continue;
-                let el = mol.atomElement(n);
-                let wantVal = VALENCES[el], wantOx = OXSTATES[el];
-                if (!wantVal && !wantOx)
-                    continue;
-                let hyd = mol.atomHydrogens(n);
-                let valence = -mol.atomCharge(n) + mol.atomUnpaired(n) + hyd;
-                let oxstate = mol.atomCharge(n) + hyd;
-                for (let b of mol.atomAdjBonds(n)) {
-                    let o = mol.bondOrder(b);
-                    valence += o;
-                    oxstate += o % 2;
-                }
-                if (wantVal && wantVal.indexOf(valence) < 0)
-                    this.results.push({ 'type': "badvalence", 'atom': n, 'value': valence });
-                if (wantOx && wantOx.indexOf(oxstate) < 0)
-                    this.results.push({ 'type': "oxstate", 'atom': n, 'value': oxstate });
-            }
+            this.atomMap = WebMolKit.Vec.numberArray(0, mol.numAtoms);
+            this.bondMap = WebMolKit.Vec.numberArray(0, mol.numBonds);
+            for (let n = 1; n <= mol.numAtoms; n++)
+                for (let ex of mol.atomExtra(n))
+                    if (ex.startsWith('xN:'))
+                        this.atomMap[n - 1] = parseInt(ex.substring(3));
+            for (let n = 1; n <= mol.numBonds; n++)
+                for (let ex of mol.bondExtra(n))
+                    if (ex.startsWith('xN:'))
+                        this.bondMap[n - 1] = parseInt(ex.substring(3));
+            for (let n = 1; n <= mol.numAtoms; n++)
+                this.identifyCorrections(mol, n);
+            for (let n = 1; n <= mol.numAtoms; n++)
+                this.identifyValenceProblems(mol, n);
+            this.calcFormula = WebMolKit.MolUtil.molecularFormula(mol);
+            if (this.calcFormula != this.formula)
+                this.results.push({ 'type': "wrongformula", 'text': this.calcFormula });
             return this.results;
+        }
+        identifyCorrections(mol, atom) {
+            let el = mol.atomElement(atom);
+            if (el == 'C' && mol.atomUnpaired(atom) != 2 && mol.atomAdjCount(atom) == 2 && mol.atomHydrogens(atom) == 0) {
+                let adj = mol.atomAdjBonds(atom);
+                let o1 = mol.bondOrder(adj[0]), o2 = mol.bondOrder(adj[1]);
+                if ((o1 == 0 && o2 == 2) || (o1 == 2 && o2 == 0)) {
+                    mol.setAtomUnpaired(atom, 2);
+                    this.results.push({ 'type': "fixcarbonyl", 'atom': this.atomMap[atom - 1] });
+                }
+            }
+        }
+        identifyValenceProblems(mol, atom) {
+            if (mol.atomicNumber(atom) == 0) {
+                this.results.push({ 'type': "nonelement", 'atom': this.atomMap[atom - 1], 'text': mol.atomElement(atom) });
+                return;
+                ;
+            }
+            let extra = mol.atomExtra(atom), extraMod = false;
+            for (let i = extra.length - 1; i >= 0; i--)
+                if (extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESPATH) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_RESRING) || extra[i].startsWith(WebMolKit.BONDARTIFACT_EXTRA_ARENE)) {
+                    extra.splice(i, 1);
+                    extraMod = true;
+                }
+            if (extraMod)
+                mol.setAtomExtra(atom, extra);
+            if (mol.atomAdjCount(atom) == 0)
+                return;
+            let el = mol.atomElement(atom);
+            let wantVal = VALENCES[el], wantOx = OXSTATES[el];
+            if (!wantVal && !wantOx)
+                return;
+            let hyd = mol.atomHydrogens(atom);
+            let valence = -mol.atomCharge(atom) + mol.atomUnpaired(atom) + hyd;
+            let oxstate = mol.atomCharge(atom) + hyd;
+            for (let b of mol.atomAdjBonds(atom)) {
+                let o = mol.bondOrder(b);
+                valence += o;
+                oxstate += o % 2;
+            }
+            if (wantVal && wantVal.indexOf(valence) < 0)
+                this.results.push({ 'type': "badvalence", 'atom': this.atomMap[atom - 1], 'value': valence });
+            if (wantOx && wantOx.indexOf(oxstate) < 0)
+                this.results.push({ 'type': "oxstate", 'atom': this.atomMap[atom - 1], 'value': oxstate });
         }
     }
     WebMolKit.AnalyseMolecule = AnalyseMolecule;
@@ -16778,6 +16882,8 @@ var WebMolKit;
             this.inputFile.val(filename);
         }
         menuAction(cmd) {
+            if (cmd == 'copy')
+                document.execCommand('copy');
         }
         build() {
             let divMain = $('<div></div>').appendTo(this.root);
@@ -16788,6 +16894,8 @@ var WebMolKit;
             spanTitle.css({ 'align-self': 'center' });
             this.inputFile = $('<input type="text" size="40"></input>').appendTo(divInput);
             this.inputFile.css({ 'flex-grow': '1', 'font': 'inherit', 'margin': '0 0.5em 0 0.5em' });
+            this.inputFile.keypress((event) => { if (event.keyCode == 13)
+                this.runAnalysis(); });
             let btnPick = $('<button class="wmk-button wmk-button-default">Pick</button>').appendTo(divInput);
             btnPick.css({ 'align-self': 'center' });
             btnPick.click(() => this.pickFilename());
@@ -16796,6 +16904,7 @@ var WebMolKit;
             this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Analyse</button>').appendTo(paraRun);
             this.btnAnalyse.click(() => this.runAnalysis());
             this.divResults = $('<div></div>').appendTo(divMain);
+            this.inputFile.focus();
         }
         pickFilename() {
             const electron = require('electron');
@@ -16834,8 +16943,10 @@ var WebMolKit;
         startAnalysis() {
             this.btnAnalyse.prop('disabled', true);
             this.colMol = this.ds.firstColOfType(WebMolKit.DataSheet.COLTYPE_MOLECULE);
+            this.colFormula = this.ds.ensureColumn('Formula', WebMolKit.DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
             this.colError = this.ds.ensureColumn('Errors', WebMolKit.DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
             this.colWarning = this.ds.ensureColumn('Warnings', WebMolKit.DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
+            this.colFixed = this.ds.ensureColumn('Fixes', WebMolKit.DataSheet.COLTYPE_STRING, 'Corrections that could be made unambiguously');
             this.setupHeadings();
             this.processRow(0);
         }
@@ -16852,32 +16963,39 @@ var WebMolKit;
             }
         }
         processRow(row) {
-            if (row >= this.ds.numRows || row > 10) {
+            if (row >= this.ds.numRows) {
                 this.finishAnalysis();
                 return;
             }
-            let mol = this.ds.getMolecule(row, this.colMol);
-            let anal = new WebMolKit.AnalyseMolecule(mol);
+            let mol = this.ds.getMolecule(row, this.colMol), formula = this.ds.getString(row, this.colFormula);
+            let anal = new WebMolKit.AnalyseMolecule(mol, formula);
             anal.perform();
-            let error = [], warning = [];
+            let error = [], warning = [], fixed = [];
             for (let result of anal.results) {
-                if (result.type == "badvalence") {
+                if (result.type == "badvalence")
                     error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-                }
-                else if (result.type == "oxstate") {
+                else if (result.type == "oxstate")
                     warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-                }
+                else if (result.type == "wrongformula")
+                    error.push('Formula:' + result.text);
+                else if (result.type == "nonelement")
+                    error.push('NonElement:atom=' + result.atom + '[' + result.text + ']');
+                else if (result.type == "fixcarbonyl")
+                    fixed.push('FixedCarbonyl:atom=' + result.atom);
+                else
+                    throw '?' + result.type;
             }
             this.ds.setMolecule(row, this.colMol, anal.mol);
             this.ds.setString(row, this.colError, error.join('\n'));
             this.ds.setString(row, this.colWarning, warning.join('\n'));
+            this.ds.setString(row, this.colFixed, fixed.join('\n'));
             let tr = $('<tr></tr>').appendTo(this.tableResults);
             tr.css('background-color', row % 2 ? '#F0F0F0' : '#F8F8F8');
             for (let n = -1; n < this.ds.numCols; n++) {
                 let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? WebMolKit.DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
                 let td = $('<td></td>').appendTo(tr);
                 let align = ct == WebMolKit.DataSheet.COLTYPE_STRING ? 'left' : 'center';
-                td.css({ 'text-align': align, 'vertical-align': 'center' });
+                td.css({ 'text-align': align, 'vertical-align': 'center', 'white-space': 'pre-wrap' });
                 if (n >= 0)
                     td.css({ 'margin-left': '0.3em', 'margin-right': '0.3em' });
                 if (n < 0)
@@ -16895,11 +17013,34 @@ var WebMolKit;
                 }
                 else
                     td.text(this.ds.getObject(row, n).toString());
+                if (n == this.colFormula && this.ds.isNull(row, n)) {
+                    let divBtn = $('<div></div>').appendTo(td);
+                    divBtn.css({ 'text-align': 'center' });
+                    let btnFormula = $('<button class="wmk-button wmk-button-default">Use</button>').appendTo(divBtn);
+                    btnFormula.click(() => {
+                        td.text(anal.calcFormula);
+                        this.ds.setString(row, this.colFormula, anal.calcFormula);
+                    });
+                }
             }
             setTimeout(() => this.processRow(row + 1), 1);
         }
         finishAnalysis() {
             this.btnAnalyse.prop('disabled', false);
+            let paraSave = $('<p></p>').appendTo(this.divResults);
+            paraSave.css({ 'text-align': 'center' });
+            let btnSave = $('<button class="wmk-button wmk-button-primary">Save</button>').appendTo(paraSave);
+            btnSave.click(() => this.saveFile());
+        }
+        saveFile() {
+            let strXML = WebMolKit.DataSheetStream.writeXML(this.ds);
+            const fs = require('fs');
+            try {
+                fs.writeFileSync(this.filename, strXML);
+            }
+            catch (ex) {
+                throw 'Unable to write file: ' + this.filename;
+            }
         }
     }
     WebMolKit.CoordPanel = CoordPanel;
@@ -16952,65 +17093,6 @@ var WebMolKit;
         bw.loadURL(url);
     }
     WebMolKit.openNewWindow = openNewWindow;
-})(WebMolKit || (WebMolKit = {}));
-var WebMolKit;
-(function (WebMolKit) {
-    class AnalyseDataSheets {
-        constructor(args) {
-            this.filenames = [];
-            for (let n = 0; n < args.length; n++) {
-                if (args[n].startsWith('-'))
-                    throw 'Unexpected argument: ' + args[n];
-                else
-                    this.filenames.push(args[n]);
-            }
-            if (this.filenames.length == 0)
-                throw 'Must provide at least one datasheet filename argument.';
-        }
-        exec() {
-            console.log('Analyzing files...');
-            const fs = require('fs');
-            for (let n = 0; n < this.filenames.length; n++) {
-                let fn = this.filenames[n];
-                console.log('  ' + (n + 1) + '/' + this.filenames.length + ': ' + fn);
-                let strXML = '';
-                try {
-                    strXML = fs.readFileSync(fn);
-                }
-                catch (ex) {
-                    throw 'Unable to read file: ' + fn;
-                }
-                let ds = WebMolKit.DataSheetStream.readXML(fn);
-                if (ds == null)
-                    throw 'Unable to parse file ' + fn;
-                this.analyse(ds);
-            }
-            console.log('Done.');
-        }
-        analyse(ds) {
-            let colMol = ds.firstColOfType(WebMolKit.DataSheet.COLTYPE_MOLECULE);
-            let colError = ds.ensureColumn('Errors', WebMolKit.DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
-            let colWarning = ds.ensureColumn('Warnings', WebMolKit.DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
-            for (let n = 0; n < ds.numRows; n++) {
-                let mol = ds.getMolecule(n, colMol);
-                let anal = new WebMolKit.AnalyseMolecule(mol);
-                anal.perform();
-                let error = [], warning = [];
-                for (let result of anal.results) {
-                    if (result.type == "badvalence") {
-                        error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-                    }
-                    else if (result.type == "oxstate") {
-                        warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
-                    }
-                }
-                ds.setMolecule(n, colMol, anal.mol);
-                ds.setString(n, colError, error.join('\n'));
-                ds.setString(n, colWarning, warning.join('\n'));
-            }
-        }
-    }
-    WebMolKit.AnalyseDataSheets = AnalyseDataSheets;
 })(WebMolKit || (WebMolKit = {}));
 var WebMolKit;
 (function (WebMolKit) {

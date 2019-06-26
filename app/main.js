@@ -54,7 +54,8 @@ app.on('ready', function()
 		wnd.on('closed', () => 
 		{
 			wnd.removeAllListeners();
-			for (let n = 0; n < mainWindows.length; n++) if (mainWindows[n] === wnd) {mainWindows.splice(n, 1); break;}
+			//for (let n = 0; n < mainWindows.length; n++) if (mainWindows[n] === wnd) {mainWindows.splice(n, 1); break;}
+			electron.app.quit();
 		});
 	}
 	setupMenu();
