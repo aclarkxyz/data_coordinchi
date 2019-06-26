@@ -211,15 +211,20 @@ export class CoordPanel extends MainPanel
 
 		let mol = this.ds.getMolecule(row, this.colMol), formula = this.ds.getString(row, this.colFormula);
 		let anal = new AnalyseMolecule(mol, formula);
-		anal.perform();
+		try {anal.perform();}
+		catch (ex)
+		{
+			console.log('Failure: ' + ex);
+			console.log(ex.stack);
+		}
 
 		let error:string[] = [], warning:string[] = [], fixed:string[] = [];
 		for (let result of anal.results)
 		{
 			if (result.type == AnalyseMoleculeType.BadValence)
-				error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+				error.push('Valence:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
 			else if (result.type == AnalyseMoleculeType.OddOxState)
-				warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+				warning.push('OxState:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
 			else if (result.type == AnalyseMoleculeType.WrongFormula)
 				error.push('Formula:' + result.text);
 			else if (result.type == AnalyseMoleculeType.NonElement)

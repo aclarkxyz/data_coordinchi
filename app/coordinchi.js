@@ -16681,7 +16681,7 @@ var WebMolKit;
         'Cl': [1, 3, 5, 7],
         'Br': [1, 3, 5, 7],
         'I': [1, 3, 5, 7],
-        'B': [3],
+        'B': [3, 5],
         'Ne': [0],
         'Ar': [0],
         'Ge': [4],
@@ -16969,13 +16969,19 @@ var WebMolKit;
             }
             let mol = this.ds.getMolecule(row, this.colMol), formula = this.ds.getString(row, this.colFormula);
             let anal = new WebMolKit.AnalyseMolecule(mol, formula);
-            anal.perform();
+            try {
+                anal.perform();
+            }
+            catch (ex) {
+                console.log('Failure: ' + ex);
+                console.log(ex.stack);
+            }
             let error = [], warning = [], fixed = [];
             for (let result of anal.results) {
                 if (result.type == "badvalence")
-                    error.push('Valence:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                    error.push('Valence:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
                 else if (result.type == "oxstate")
-                    warning.push('OxState:atom=' + result.atom + '[' + mol.atomElement(result.atom) + ']:' + result.value);
+                    warning.push('OxState:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
                 else if (result.type == "wrongformula")
                     error.push('Formula:' + result.text);
                 else if (result.type == "nonelement")

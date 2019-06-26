@@ -34,7 +34,7 @@ const VALENCES:{[id:string] : number[]} =
 	'Cl': [1, 3, 5, 7],
 	'Br': [1, 3, 5, 7],
 	'I': [1, 3, 5, 7],
-	'B': [3],
+	'B': [3, 5],
 	'Ne': [0],
 	'Ar': [0],
 	'Ge': [4],
@@ -170,7 +170,6 @@ export class AnalyseMolecule
 
 		for (let n = 1; n <= mol.numAtoms; n++) this.identifyCorrections(mol, n);
 		for (let n = 1; n <= mol.numAtoms; n++) this.identifyValenceProblems(mol, n);
-
 
 		this.calcFormula = MolUtil.molecularFormula(mol);
 		if (this.calcFormula != this.formula) this.results.push({'type': AnalyseMoleculeType.WrongFormula, 'text': this.calcFormula});
