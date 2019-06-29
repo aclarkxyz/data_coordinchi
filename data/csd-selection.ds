@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSheet>
+ <Summary>
+  <Title>Organometallics</Title>
+  <Description><![CDATA[Original list from IUPAC working group]]></Description>
+ </Summary>
+ <Header nrows="0" ncols="4">
+  <Column name="Molecule" type="molecule" id="1">Molecular structure</Column>
+  <Column name="Name" type="string" id="2"></Column>
+  <Column name="Formula" type="string" id="3"></Column>
+  <Column name="CSDID" type="string" id="4"></Column>
+ </Header>
+ <Content/>
+</DataSheet>
