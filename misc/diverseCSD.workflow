@@ -113,10 +113,18 @@
             <Outputs count="1"/>
         </Node>
 
+        <Node name="RemoveSimilar" op="com.mmi.work.op.fmt.DeleteColumns">
+            <Input name="KeepSimilar" port="1"/>
+            <Parameters>
+                <Parameter name="columns"><Item>Similarity</Item></Parameter>
+            </Parameters>
+            <Outputs count="1"/>
+        </Node>
+
         <!-- pick a diverse subset -->
 
         <Node name="Diverse" op="com.mmi.work.op.mol.DiverseSubset">
-            <Input name="KeepSimilar" port="1"/>
+            <Input name="RemoveSimilar" port="1"/>
             <Parameters>
                 <Parameter name="maxCount" source="divsize"/>
             </Parameters>
