@@ -50,6 +50,7 @@
             <Input name="ReadPubChem" port="1"/>
             <Parameters>
                 <Parameter name="heavyAtoms">HeavyAtoms</Parameter>
+                <Parameter name="heavyBonds">HeavyBonds</Parameter>
             </Parameters>
             <Outputs count="1"/>
         </Node>
@@ -57,9 +58,21 @@
         <Node name="LimitHeavy" op="com.mmi.work.op.reduce.FilterProperties">
             <Input name="CalcProps" port="1"/>
             <Parameters>
-                <Parameter name="column"><Item>HeavyAtoms</Item></Parameter>
-                <Parameter name="operator"><Item>&lt;=</Item></Parameter>
-                <Parameter name="value"><Item>100</Item></Parameter>
+                <Parameter name="column">
+                    <Item>HeavyAtoms</Item>
+                    <Item>HeavyAtoms</Item>
+                    <Item>HeavyBonds</Item>
+                </Parameter>
+                <Parameter name="operator">
+                    <Item>&gt;=</Item>
+                    <Item>&lt;=</Item>
+                    <Item>&gt;=</Item>
+                </Parameter>
+                <Parameter name="value">
+                    <Item>6</Item>
+                    <Item>100</Item>
+                    <Item>5</Item>
+                </Parameter>
             </Parameters>
             <Outputs count="1"/>
         </Node>
@@ -67,7 +80,10 @@
         <Node name="RemoveCols" op="com.mmi.work.op.fmt.DeleteColumns">
             <Input name="LimitHeavy" port="1"/>
             <Parameters>
-                <Parameter name="columns"><Item>HeavyAtoms</Item></Parameter>
+                <Parameter name="columns">
+                    <Item>HeavyAtoms</Item>
+                    <Item>HeavyBonds</Item>
+                </Parameter>
             </Parameters>
             <Outputs count="1"/>
         </Node>
