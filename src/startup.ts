@@ -57,7 +57,7 @@ export function runCoordInChI(rootID:string):void
 	else
 	{
 		let constructor = eval(panelClass);
-		let dw:MainPanel = new constructor(root);
+		let dw:WindowPanel = new constructor(root);
 		if (filename) dw.loadFile(filename);
 	}
 }

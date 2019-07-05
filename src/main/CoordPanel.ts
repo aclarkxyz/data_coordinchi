@@ -17,7 +17,7 @@
 ///<reference path='../decl/electron.d.ts'/>
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
-///<reference path='MainPanel.ts'/>
+///<reference path='WindowPanel.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -25,7 +25,7 @@ namespace WebMolKit /* BOF */ {
 	Drawing window: dedicated entirely to the sketching of a molecular structure.
 */
 
-export class CoordPanel extends MainPanel
+export class CoordPanel extends WindowPanel
 {
 	private proxyClip = new ClipboardProxy();
 
@@ -255,15 +255,19 @@ export class CoordPanel extends MainPanel
 			else if (this.ds.isNull(row, n)) {}
 			else if (ct == DataSheet.COLTYPE_MOLECULE)
 			{
-				let layout = new ArrangeMolecule(mol, this.measure, this.policy, this.effects);
-				layout.arrange();
-				layout.squeezeInto(0, 0, 300, 300);
-				let gfx = new MetaVector();
-				new DrawMolecule(layout, gfx).draw();
-				gfx.normalise();
+				if (n == this.colMol)
+				{
+					let layout = new ArrangeMolecule(mol, this.measure, this.policy, this.effects);
+					layout.arrange();
+					layout.squeezeInto(0, 0, 300, 300);
+					let gfx = new MetaVector();
+					new DrawMolecule(layout, gfx).draw();
+					gfx.normalise();
 
-				let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
-				let domSVG = $(gfx.createSVG()).appendTo(div);
+					let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
+					let domSVG = $(gfx.createSVG()).appendTo(div);
+				}
+				else td.html('<i>source</i>'); // only want to show the main molecule'
 			}
 			else td.text(this.ds.getObject(row, n).toString());
 

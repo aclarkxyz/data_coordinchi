@@ -16,12 +16,14 @@
 			"args": 
 			[
 				//"data/iupaclist.ds"
-                "data/curated-0001.ds"
+                //"data/curated-0001.ds"
                 //"data/curated-0201.ds"
                 //"data/curated-0401.ds"
                 //"data/curated-0601.ds"
                 //"data/curated-0801.ds"
                 //"data/curated-1001.ds"
+				"data/csd-selection.ds"
+				//"data/pubchem-selection.ds"
 			],
 			"protocol": "inspector"
 		},

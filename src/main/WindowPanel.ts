@@ -14,7 +14,7 @@ namespace WebMolKit /* BOF */ {
 	Base class for "main windows": an object that takes up the entire browser window document, responds to resizing, etc.
 */
 
-export class MainPanel
+export class WindowPanel
 {
 	constructor(public root:JQuery)
 	{
