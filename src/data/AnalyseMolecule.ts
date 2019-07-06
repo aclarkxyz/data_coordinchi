@@ -40,9 +40,9 @@ const VALENCES:{[id:string] : number[]} =
 	'Ar': [0],
 	'Ge': [4],
 	'As': [3],
-	'Se': [6],
+	'Se': [2, 4],
 	'Kr': [0],
-	'Te': [6],
+	'Te': [2, 4],
 	'Xe': [0],
 	'Rn': [0],
 };
@@ -55,6 +55,7 @@ const OXVALENCES:{[id:string] : number[]} =
 	'Cl': [3, 5, 7],
 	'Br': [3, 5, 7],
 	'I': [3, 5, 7],
+	'As': [5, 7],
 	'Se': [6],
 	'Te': [6],
 	'Xe': [2, 4, 6],
@@ -250,7 +251,7 @@ export class AnalyseMolecule
 		{
 			// special deal: oxy substituents can expand the valence options
 			let oxyPass = false;
-			if (oxyValence > 0 && wantVal.indexOf(valence - oxyValence) >= 0)
+			if (oxyValence > 0)
 			{
 				let options = OXVALENCES[el];
 				if (options && options.indexOf(valence) >= 0) oxyPass = true;

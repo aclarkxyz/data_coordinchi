@@ -243,9 +243,9 @@ export class CoordPanel extends WindowPanel
 		for (let result of anal.results)
 		{
 			if (result.type == AnalyseMoleculeType.BadValence)
-				error.push('Valence:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
+				error.push('Valence:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:val=' + result.value);
 			else if (result.type == AnalyseMoleculeType.OddOxState)
-				warning.push('OxState:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:' + result.value);
+				warning.push('OxState:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:ox=' + result.value);
 			else if (result.type == AnalyseMoleculeType.WrongFormula)
 				error.push('Formula:' + result.text);
 			else if (result.type == AnalyseMoleculeType.NonElement)
