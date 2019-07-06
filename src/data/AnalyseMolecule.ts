@@ -30,7 +30,7 @@ const VALENCES:{[id:string] : number[]} =
 	'O': [2],
 	'Si': [4],
 	'P': [3, 5],
-	'S': [2, 4],
+	'S': [2, 4, 6],
 	'F': [1],
 	'Cl': [1],
 	'Br': [1],
@@ -40,9 +40,9 @@ const VALENCES:{[id:string] : number[]} =
 	'Ar': [0],
 	'Ge': [4],
 	'As': [3],
-	'Se': [2, 4],
+	'Se': [2, 4, 6],
 	'Kr': [0],
-	'Te': [2, 4],
+	'Te': [2, 4, 6],
 	'Xe': [0],
 	'Rn': [0],
 };
@@ -51,15 +51,20 @@ const VALENCES:{[id:string] : number[]} =
 const OXVALENCES:{[id:string] : number[]} =
 {
 	'P': [7],
-	'S': [6],
 	'Cl': [3, 5, 7],
 	'Br': [3, 5, 7],
 	'I': [3, 5, 7],
 	'As': [5, 7],
-	'Se': [6],
-	'Te': [6],
 	'Xe': [2, 4, 6],
-}
+};
+
+// valence options available only in cationic form: lower than usual valences are seen in some cases (e.g. carbocations)
+const CATVALENCES:{[id:string] : number[]} =
+{
+	'C': [2],
+	'Si': [2],
+	'Al': [1],
+};
 
 // list of normal oxidation states for metals; these have quite a few exceptions, so they can only be considered guides
 const OXSTATES:{[id:string] : number[]} =
@@ -104,15 +109,15 @@ const OXSTATES:{[id:string] : number[]} =
 	'Fe': [0, 2, 3],
 	'Ru': [0, 2, 3],
 	'Os': [0, 2],
-	'Co': [0, 2, 3],
+	'Co': [0, 1, 2, 3],
 	'Rh': [1, 3],
 	'Ir': [1, 3],
-	'Ni': [0, 2, 3],
+	'Ni': [0, 1, 2, 3],
 	'Pd': [0, 2],
 	'Pt': [0, 2],
 	'Cu': [1, 2],
 	'Ag': [1],
-	'Au': [1, 2],
+	'Au': [1, 2, 3],
 	'Zn': [2],
 	'Cd': [2],
 	'Hg': [2],
@@ -235,34 +240,44 @@ export class AnalyseMolecule
 		let wantVal = VALENCES[el], wantOx = OXSTATES[el];
 		if (!wantVal && !wantOx) return;
 
-		let hyd = mol.atomHydrogens(atom);
-		let valence = -mol.atomCharge(atom) + mol.atomUnpaired(atom) + hyd;
-		let oxyValence = 0; // record how much of the valence was due to O or F, which can trigger allowance of more states
-		let oxstate = mol.atomCharge(atom) + hyd;
+		// electronegativity ranking, for purposes of being "attached to an oxidant", to get the bonus higher oxidation levels; higher is more oxidising
+		let eneg = (el:string):number =>
+		{
+			return ['Br', 'Cl', 'O', 'F'].indexOf(el);
+		};
+
+		let hyd = mol.atomHydrogens(atom), chg = mol.atomCharge(atom), unp = mol.atomUnpaired(atom);
+		let valence = -chg + unp + hyd;
+		let oxstate = chg + hyd;
+		let oxiValence = 0; // record how much of the valence was due to O or F, which can trigger allowance of more states
+		let tmBonds = Chemistry.ELEMENT_BLOCKS[mol.atomicNumber(atom)] >= 3 ? 0 : -1; // count # zero order bonds between transition metals
+		let termDouble = 0; // count # of terminal double bonds (usually =O or =S) which usuallly count oxidation state differently
 		for (let b of mol.atomAdjBonds(atom))
 		{
-			let o = mol.bondOrder(b);
-			valence += o;
-			oxstate += o % 2;
-			let otherEl = mol.atomElement(mol.bondOther(b, atom));
-			if (otherEl == 'O' || otherEl == 'F') oxyValence += o;
+			let order = mol.bondOrder(b), oatom = mol.bondOther(b, atom);
+			valence += order;
+			oxstate += order % 2;
+			let otherEl = mol.atomElement(oatom);
+			if (eneg(otherEl) > eneg(el)) oxiValence += order;
+			if (tmBonds >= 0 && order == 0 && Chemistry.ELEMENT_BLOCKS[mol.atomicNumber(oatom)] >= 3) tmBonds++;
+			if (order == 2 && mol.atomAdjCount(oatom) == 1 && mol.atomHydrogens(oatom) == 0 && mol.atomCharge(oatom) == 0) termDouble++;
+		}
+
+		// special deals on expanding valence options
+		if (wantVal)
+		{
+			if (oxiValence > 0) wantVal = Vec.concat(wantVal, OXVALENCES[el]); // when oxidising neighbours
+			if (chg > 0) wantVal = Vec.concat(wantVal, CATVALENCES[el]); // when it's a cation
 		}
 		if (wantVal && wantVal.indexOf(valence) < 0)
-		{
-			// special deal: oxy substituents can expand the valence options
-			let oxyPass = false;
-			if (oxyValence > 0)
-			{
-				let options = OXVALENCES[el];
-				if (options && options.indexOf(valence) >= 0) oxyPass = true;
-			}
+			this.results.push({'type': AnalyseMoleculeType.BadValence, 'atom': this.atomMap[atom - 1], 'value': valence});
 
-			if (!oxyPass) this.results.push({'type': AnalyseMoleculeType.BadValence, 'atom': this.atomMap[atom - 1], 'value': valence});
-		}
-		if (wantOx && wantOx.indexOf(oxstate) < 0)
+		// oxidation state: ideally in the list; except that transition metal-metal bonds are conventionally written as zero-order, but
+		// the mapping to common oxidation states often works better if we upgrade these to sigma bonds
+		if (wantOx && wantOx.indexOf(oxstate) < 0 && wantOx.indexOf(oxstate + tmBonds) < 0 &&
+					  wantOx.indexOf(oxstate + termDouble * 2) < 0 && wantOx.indexOf(oxstate + tmBonds + termDouble * 2) < 0)
 			this.results.push({'type': AnalyseMoleculeType.OddOxState, 'atom': this.atomMap[atom - 1], 'value': oxstate});
 	}
-
 }
 
 /* EOF */ }
