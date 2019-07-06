@@ -21,6 +21,7 @@ namespace WebMolKit /* BOF */ {
 	Find things wrong with a molecule, pertaining to having an appropriate valence.
 */
 
+// normal allowed-valence list
 const VALENCES:{[id:string] : number[]} =
 {
 	'H': [1],
@@ -29,23 +30,37 @@ const VALENCES:{[id:string] : number[]} =
 	'O': [2],
 	'Si': [4],
 	'P': [3, 5],
-	'S': [2, 4, 6],
+	'S': [2, 4],
 	'F': [1],
-	'Cl': [1, 3, 5, 7],
-	'Br': [1, 3, 5, 7],
-	'I': [1, 3, 5, 7],
+	'Cl': [1],
+	'Br': [1],
+	'I': [1],
 	'B': [3, 5],
 	'Ne': [0],
 	'Ar': [0],
 	'Ge': [4],
 	'As': [3],
-	'Se': [2, 4, 6],
+	'Se': [6],
 	'Kr': [0],
-	'Te': [2, 4, 6],
-	'Xe': [0, 2, 4, 6],
+	'Te': [6],
+	'Xe': [0],
 	'Rn': [0],
 };
 
+// oxidised valence options: these are only allowed when an atom has oxygens or fluorines
+const OXVALENCES:{[id:string] : number[]} =
+{
+	'P': [7],
+	'S': [6],
+	'Cl': [3, 5, 7],
+	'Br': [3, 5, 7],
+	'I': [3, 5, 7],
+	'Se': [6],
+	'Te': [6],
+	'Xe': [2, 4, 6],
+}
+
+// list of normal oxidation states for metals; these have quite a few exceptions, so they can only be considered guides
 const OXSTATES:{[id:string] : number[]} =
 {
 	'Li': [1],
@@ -80,9 +95,9 @@ const OXSTATES:{[id:string] : number[]} =
 	'Nb': [5],
 	'Ta': [5],
 	'Cr': [2, 3, 6],
-	'Mo': [2, 4, 6],
+	'Mo': [0, 2, 3, 4, 6],
 	'W': [2, 4, 6],
-	'Mn': [1, 3, 5, 7],
+	'Mn': [1, 2, 3, 5, 7],
 	'Tc': [7],
 	'Re': [1, 3],
 	'Fe': [0, 2, 3],
@@ -221,15 +236,28 @@ export class AnalyseMolecule
 
 		let hyd = mol.atomHydrogens(atom);
 		let valence = -mol.atomCharge(atom) + mol.atomUnpaired(atom) + hyd;
+		let oxyValence = 0; // record how much of the valence was due to O or F, which can trigger allowance of more states
 		let oxstate = mol.atomCharge(atom) + hyd;
 		for (let b of mol.atomAdjBonds(atom))
 		{
 			let o = mol.bondOrder(b);
 			valence += o;
 			oxstate += o % 2;
+			let otherEl = mol.atomElement(mol.bondOther(b, atom));
+			if (otherEl == 'O' || otherEl == 'F') oxyValence += o;
 		}
 		if (wantVal && wantVal.indexOf(valence) < 0)
-			this.results.push({'type': AnalyseMoleculeType.BadValence, 'atom': this.atomMap[atom - 1], 'value': valence});
+		{
+			// special deal: oxy substituents can expand the valence options
+			let oxyPass = false;
+			if (oxyValence > 0 && wantVal.indexOf(valence - oxyValence) >= 0)
+			{
+				let options = OXVALENCES[el];
+				if (options && options.indexOf(valence) >= 0) oxyPass = true;
+			}
+
+			if (!oxyPass) this.results.push({'type': AnalyseMoleculeType.BadValence, 'atom': this.atomMap[atom - 1], 'value': valence});
+		}
 		if (wantOx && wantOx.indexOf(oxstate) < 0)
 			this.results.push({'type': AnalyseMoleculeType.OddOxState, 'atom': this.atomMap[atom - 1], 'value': oxstate});
 	}

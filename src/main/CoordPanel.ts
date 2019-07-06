@@ -174,6 +174,27 @@ export class CoordPanel extends WindowPanel
 	{
 		this.btnAnalyse.prop('disabled', true);
 
+		// !! TEMPORARY special deal...
+		/*let colCorr = this.ds.findColByName('Corrected', DataSheet.COLTYPE_MOLECULE), colBond = this.ds.findColByName('BondAnnot', DataSheet.COLTYPE_STRING);
+		if (colCorr >= 0 && colBond >= 0)
+		{
+			console.log('SPECIAL CORRECTIONS');
+			this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
+			for (let n = this.ds.numRows - 1; n >= 0; n--) if (this.ds.notNull(n, colCorr))
+			{
+				this.ds.insertRow(n + 1);
+				for (let i = 0; i < this.ds.numCols; i++) this.ds.setObject(n + 1, i, this.ds.getObject(n, i));
+				let mol = this.ds.getMolecule(n, colCorr);
+				this.ds.setMolecule(n + 1, 'Molecule', mol);
+				this.ds.setString(n + 1, colBond, 'corrected');
+
+				let formula = MolUtil.molecularFormula(mol);
+				this.ds.setString(n, 'Formula', formula);
+				this.ds.setString(n + 1, 'Formula', formula);
+			}
+			this.ds.deleteColumn(colCorr);
+		}*/
+
 		this.colMol = this.ds.firstColOfType(DataSheet.COLTYPE_MOLECULE);
 		this.colFormula = this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
 		this.colError = this.ds.ensureColumn('Errors', DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
@@ -267,7 +288,7 @@ export class CoordPanel extends WindowPanel
 					let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
 					let domSVG = $(gfx.createSVG()).appendTo(div);
 				}
-				else td.html('<i>source</i>'); // only want to show the main molecule'
+				else td.html('<i>source</i>'); // only want to show the main molecule
 			}
 			else td.text(this.ds.getObject(row, n).toString());
 

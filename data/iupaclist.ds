@@ -4,10 +4,11 @@
 <Title>Organometallics</Title>
 <Description><![CDATA[Original list from IUPAC working group]]></Description>
 </Summary>
-<Header nrows="18" ncols="3">
+<Header nrows="18" ncols="4">
 <Column name="Molecule" type="molecule" id="1">Molecular structure</Column>
 <Column name="Name" type="string" id="2"></Column>
 <Column name="Formula" type="string" id="3"></Column>
+<Column name="Source" type="string" id="4"></Column>
 </Header>
 <Content>
 <Row id="1">
@@ -23,6 +24,7 @@ Br=0.5918,4.2773;0,0,i0
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C2H5BrMg]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="2">
 <Cell id="1"><![CDATA[SketchEl!(11,10)
@@ -51,6 +53,7 @@ C=-4.7722,4.8263;0,0,i3
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C6H17BrMgO3]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="3">
 <Cell id="1"><![CDATA[SketchEl!(11,10)
@@ -79,6 +82,7 @@ C=-4.7722,4.8263;0,0,i3
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C6H17BrMgO3]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="4">
 <Cell id="1"><![CDATA[SketchEl!(11,6)
@@ -103,6 +107,7 @@ C=-4.7722,4.8263;0,0,i3
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C6H17BrMgO3]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="5">
 <Cell id="1"><![CDATA[SketchEl!(11,20)
@@ -141,6 +146,7 @@ Fe=5.6700,-1.6610;0,0,i0
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="6">
 <Cell id="1"><![CDATA[SketchEl!(11,12)
@@ -171,6 +177,7 @@ C=0.7500,-3.8100;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="7">
 <Cell id="1"><![CDATA[SketchEl!(11,10)
@@ -199,6 +206,7 @@ C=0.7500,-3.8100;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="8">
 <Cell id="1"><![CDATA[SketchEl!(11,10)
@@ -227,6 +235,7 @@ C=0.7500,-3.8100;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="9">
 <Cell id="1"><![CDATA[SketchEl!(11,20)
@@ -265,6 +274,7 @@ Fe=5.6700,-1.6610;0,0,i0
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="10">
 <Cell id="1"><![CDATA[SketchEl!(11,20)
@@ -303,6 +313,7 @@ Fe=5.6700,-1.6610;0,0,i0
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C10H10Fe]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="11">
 <Cell id="1"><![CDATA[SketchEl!(52,58)
@@ -420,6 +431,7 @@ C=4.5452,-0.0927;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C46H65Cl2N2PRu]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="12">
 <Cell id="1"><![CDATA[SketchEl!(52,58)
@@ -537,6 +549,7 @@ C=4.5452,-0.0927;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C46H65Cl2N2PRu]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="13">
 <Cell id="1"><![CDATA[SketchEl!(52,58)
@@ -654,6 +667,7 @@ C=4.5452,-0.0927;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C46H65Cl2N2PRu]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="14">
 <Cell id="1"><![CDATA[SketchEl!(52,58)
@@ -771,6 +785,7 @@ C=4.5452,-0.0927;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C46H65Cl2N2PRu]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="15">
 <Cell id="1"><![CDATA[SketchEl!(25,32)
@@ -835,6 +850,7 @@ C=-0.3000,-2.3714;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C20H12MgN4]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="16">
 <Cell id="1"><![CDATA[SketchEl!(25,32)
@@ -899,6 +915,7 @@ C=-0.3000,-2.3714;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C20H12MgN4]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="17">
 <Cell id="1"><![CDATA[SketchEl!(25,30)
@@ -961,6 +978,7 @@ C=-0.3000,-2.3714;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C20H12MgN4]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 <Row id="18">
 <Cell id="1"><![CDATA[SketchEl!(25,28)
@@ -1021,6 +1039,7 @@ C=-0.3000,-2.3714;0,0,i1
 ]]></Cell>
 <Cell id="2"></Cell>
 <Cell id="3"><![CDATA[C20H12MgN4]]></Cell>
+<Cell id="4"><![CDATA[InChI]]></Cell>
 </Row>
 </Content>
 </DataSheet>

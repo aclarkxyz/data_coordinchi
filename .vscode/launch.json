@@ -22,8 +22,9 @@
                 //"data/curated-0601.ds"
                 //"data/curated-0801.ds"
                 //"data/curated-1001.ds"
-				"data/csd-selection.ds"
+				//"data/csd-selection.ds"
 				//"data/pubchem-selection.ds"
+				"data/training.ds"
 			],
 			"protocol": "inspector"
 		},
