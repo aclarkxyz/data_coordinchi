@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DataSheet>
+<Summary>
+<Title>Disconnected</Title>
+<Description><![CDATA[Metals & main groups drawn as charge separated with no bond]]></Description>
+</Summary>
+<Header nrows="4" ncols="1">
+<Column name="Molecule" type="molecule" id="1">Molecular structure</Column>
+</Header>
+<Content>
+<Row id="1">
+<Cell id="1"><![CDATA[SketchEl!(4,3)
+C=-3.3053,3.5273;0,0,i3
+C=-2.0063,4.2773;0,0,i2
+Mg=-0.7072,3.5273;0,0,i0
+Br=0.5918,4.2773;0,0,i0
+1-2=1,0
+2-3=1,0
+3-4=1,0
+!End
+]]></Cell>
+</Row>
+<Row id="2">
+<Cell id="1"><![CDATA[SketchEl!(4,2)
+C=-3.3053,3.5273;0,0,i3
+C=-2.0063,4.2773;0,0,i2
+Mg=-0.7072,3.5273;1,0,i0
+Br=1.5918,4.2773;-1,0,i0
+1-2=1,0
+2-3=1,0
+!End
+]]></Cell>
+</Row>
+<Row id="3">
+<Cell id="1"><![CDATA[SketchEl!(4,1)
+C=-4.3053,3.5273;0,0,i3
+C=-3.0063,4.2773;-1,0,i2
+Mg=-0.7072,3.5273;2,0,i0
+Br=1.5918,4.2773;-1,0,i0
+1-2=1,0
+!End
+]]></Cell>
+</Row>
+<Row id="4">
+<Cell id="1"><![CDATA[SketchEl!(4,3)
+C=-4.3053,3.5273;0,0,i3
+C=-3.0063,4.2773;-1,0,i2
+Mg=-0.7072,3.5273;2,0,i0
+Br=1.5918,4.2773;-1,0,i0
+1-2=1,0
+2-3=0,0
+3-4=0,0
+!End
+]]></Cell>
+</Row>
+</Content>
+</DataSheet>
