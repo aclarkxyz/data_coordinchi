@@ -52,13 +52,13 @@ export function runCoordInChI(rootID:string):void
 	if (!panelClass)
 	{
 		let dw = new CoordPanel(root);
-		if (filename) dw.loadFile(filename);
+		if (filename) dw.selectFile(filename);
 	}
 	else
 	{
 		let constructor = eval(panelClass);
 		let dw:WindowPanel = new constructor(root);
-		if (filename) dw.loadFile(filename);
+		if (filename) dw.selectFile(filename);
 	}
 }
 

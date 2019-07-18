@@ -24,7 +24,7 @@
                 //"data/curated-1001.ds"
 				//"data/csd-selection.ds"
 				//"data/pubchem-selection.ds"
-				"data/training.ds"
+				"data/equivalences-inchi.ds"
 			],
 			"protocol": "inspector"
 		},

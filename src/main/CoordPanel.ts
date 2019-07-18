@@ -18,11 +18,13 @@
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
 ///<reference path='WindowPanel.ts'/>
+///<reference path='AnalyzeResults.ts'/>
+///<reference path='EquivalenceResults.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
 /*
-	Drawing window: dedicated entirely to the sketching of a molecular structure.
+	Coordination panel: content for the main window.
 */
 
 export class CoordPanel extends WindowPanel
@@ -31,21 +33,13 @@ export class CoordPanel extends WindowPanel
 
 	private inputFile:JQuery;
 	private btnAnalyse:JQuery;
+	private btnEquivalence:JQuery;
 	private divResults:JQuery;
+	private divOutcome:JQuery;
 
 	// current task
 	private filename:string = null;
 	private ds:DataSheet = null;
-	private colMol:number;
-	private colFormula:number;
-	private colError:number;
-	private colWarning:number;
-	private colFixed:number;
-	private tableResults:JQuery = null;
-	
-	protected policy:RenderPolicy;
-	protected effects:RenderEffects;
-	protected measure:ArrangeMeasurement;
 
 	// ------------ public methods ------------
 
@@ -60,15 +54,10 @@ export class CoordPanel extends WindowPanel
 
 		document.title = 'Coordination Analysis';
 
-		this.policy = RenderPolicy.defaultColourOnWhite();
-		this.policy.data.pointScale = 15;
-		this.effects = new RenderEffects();
-		this.measure = new OutlineMeasurement(0, 0, this.policy.data.pointScale);		
-
 		this.build();
 	}
 
-	public loadFile(filename:string):void
+	public selectFile(filename:string):void
 	{
 		//const process = require('process');
 		//console.log('CWD:'+process.cwd());
@@ -121,12 +110,19 @@ export class CoordPanel extends WindowPanel
 		btnPick.css({'align-self': 'center'});
 		btnPick.click(() => this.pickFilename());
 
-		let paraRun = $('<p></p>').appendTo(divMain);
-		paraRun.css({'text-align': 'center'});
-		this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Analyse</button>').appendTo(paraRun);
+		let divRun = $('<div></div>').appendTo(divMain);
+		divRun.css({'display': 'flex', 'justify-content': 'center'});
+		
+		this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Analyse</button>').appendTo(divRun).css({'margin': '0.5em'});
+		addTooltip(this.btnAnalyse, 'Show the datasheet and look for structure validity issues.');
 		this.btnAnalyse.click(() => this.runAnalysis());
+		
+		this.btnEquivalence = $('<button class="wmk-button wmk-button-primary">Equivalence</button>').appendTo(divRun).css({'margin': '0.5em'});
+		addTooltip(this.btnEquivalence, 'Display equivalences between related structures.');
+		this.btnEquivalence.click(() => this.runEquivalence());
 
 		this.divResults = $('<div></div>').appendTo(divMain);
+		this.divOutcome = $('<div></div>').appendTo(divMain);
 
 		this.inputFile.focus();
 	}
@@ -145,17 +141,31 @@ export class CoordPanel extends WindowPanel
 		};
 		dialog.showOpenDialog(params, (filenames:string[]):void =>
 		{
-			if (filenames.length > 0) this.loadFile(filenames[0]);
+			if (filenames.length > 0) this.selectFile(filenames[0]);
 		});
 	}
 
 	private runAnalysis():void
 	{
-		this.filename = null;
-		this.ds = null;
-		this.divResults.empty();
+		this.loadFile();
+		if (!this.ds) return;
+		this.preProcess();
+		new AnalyzeResults(this.ds, () => this.finishedResults()).render(this.divResults);
+	}
 
+	private runEquivalence():void
+	{
+		this.loadFile();
+		if (!this.ds) return;
+		this.preProcess();
+		new EquivalenceResults(this.ds, () => this.finishedResults()).render(this.divResults);
+	}
+
+	// obtains the file contents, and sets this.ds if successful
+	private loadFile():void
+	{
 		this.filename = this.inputFile.val();
+		this.ds = null;
 		if (!this.filename) return;
 
 		const fs = require('fs');
@@ -164,156 +174,25 @@ export class CoordPanel extends WindowPanel
 		catch (ex) {throw 'Unable to read file: ' + this.filename;}
 		this.ds = DataSheetStream.readXML(strXML);		
 		if (this.ds == null) throw 'Unable to parse file ' + this.filename;
-
-		this.startAnalysis();
 	}
 
-	// ------------ private methods ------------
-
-	private startAnalysis():void
+	// get things ready for a task
+	private preProcess():void
 	{
+		this.divResults.empty();
+		this.divOutcome.empty();
+
 		this.btnAnalyse.prop('disabled', true);
-
-		// !! TEMPORARY special deal...
-		/*let colCorr = this.ds.findColByName('Corrected', DataSheet.COLTYPE_MOLECULE), colBond = this.ds.findColByName('BondAnnot', DataSheet.COLTYPE_STRING);
-		if (colCorr >= 0 && colBond >= 0)
-		{
-			console.log('SPECIAL CORRECTIONS');
-			this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
-			for (let n = this.ds.numRows - 1; n >= 0; n--) if (this.ds.notNull(n, colCorr))
-			{
-				this.ds.insertRow(n + 1);
-				for (let i = 0; i < this.ds.numCols; i++) this.ds.setObject(n + 1, i, this.ds.getObject(n, i));
-				let mol = this.ds.getMolecule(n, colCorr);
-				this.ds.setMolecule(n + 1, 'Molecule', mol);
-				this.ds.setString(n + 1, colBond, 'corrected');
-
-				let formula = MolUtil.molecularFormula(mol);
-				this.ds.setString(n, 'Formula', formula);
-				this.ds.setString(n + 1, 'Formula', formula);
-			}
-			this.ds.deleteColumn(colCorr);
-		}*/
-
-		this.colMol = this.ds.firstColOfType(DataSheet.COLTYPE_MOLECULE);
-		this.colFormula = this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
-		this.colError = this.ds.ensureColumn('Errors', DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
-		this.colWarning = this.ds.ensureColumn('Warnings', DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
-		this.colFixed = this.ds.ensureColumn('Fixes', DataSheet.COLTYPE_STRING, 'Corrections that could be made unambiguously');
-
-		this.setupHeadings();
-		this.processRow(0);
+		this.btnEquivalence.prop('disabled', true);
 	}
 
-	private setupHeadings():void
-	{
-		this.tableResults = $('<table></table>').appendTo(this.divResults);
-		this.tableResults.css({'border': 'none'});
-
-		let tr = $('<tr></tr>').appendTo(this.tableResults);
-		tr.css('background-color', '#C0C0C0');
-
-		for (let n = -1; n < this.ds.numCols; n++)
-		{
-			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
-			let th = $('<th></th>').appendTo(tr);
-			th.css('text-align', ct == DataSheet.COLTYPE_STRING ? 'left' : 'center');
-			th.text(title);
-		}
-	}
-
-	private processRow(row:number):void
-	{
-		if (row >= this.ds.numRows)
-		{
-			this.finishAnalysis();
-			return;
-		}
-
-		let mol = this.ds.getMolecule(row, this.colMol), formula = this.ds.getString(row, this.colFormula);
-		let anal = new AnalyseMolecule(mol, formula);
-		try {anal.perform();}
-		catch (ex)
-		{
-			console.log('Failure: ' + ex);
-			console.log(ex.stack);
-		}
-
-		let error:string[] = [], warning:string[] = [], fixed:string[] = [];
-		for (let result of anal.results)
-		{
-			if (result.type == AnalyseMoleculeType.BadValence)
-				error.push('Valence:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:val=' + result.value);
-			else if (result.type == AnalyseMoleculeType.OddOxState)
-				warning.push('OxState:atom=' + result.atom + '[' + (result.atom == 0 ? '?' : mol.atomElement(result.atom)) + ']:ox=' + result.value);
-			else if (result.type == AnalyseMoleculeType.WrongFormula)
-				error.push('Formula:' + result.text);
-			else if (result.type == AnalyseMoleculeType.NonElement)
-				error.push('NonElement:atom=' + result.atom + '[' + result.text + ']');
-			else if (result.type == AnalyseMoleculeType.FixCarbonyl)
-				fixed.push('FixedCarbonyl:atom=' + result.atom);
-			
-			else throw '?' + result.type;
-		}
-
-		this.ds.setMolecule(row, this.colMol, anal.mol);
-		this.ds.setString(row, this.colError, error.join('\n'));
-		this.ds.setString(row, this.colWarning, warning.join('\n'));
-		this.ds.setString(row, this.colFixed, fixed.join('\n'));
-
-		let tr = $('<tr></tr>').appendTo(this.tableResults);
-		tr.css('background-color', row % 2 ? '#F0F0F0' : '#F8F8F8');
-
-		for (let n = -1; n < this.ds.numCols; n++)
-		{
-			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
-			let td = $('<td></td>').appendTo(tr);
-			let align = ct == DataSheet.COLTYPE_STRING ? 'left' : 'center';
-			td.css({'text-align': align, 'vertical-align': 'center', 'white-space': 'pre-wrap'});
-			if (n >= 0) td.css({'margin-left': '0.3em', 'margin-right': '0.3em'});
-
-			if (n < 0) td.text((row + 1).toString());
-			else if (this.ds.isNull(row, n)) {}
-			else if (ct == DataSheet.COLTYPE_MOLECULE)
-			{
-				if (n == this.colMol)
-				{
-					let layout = new ArrangeMolecule(mol, this.measure, this.policy, this.effects);
-					layout.arrange();
-					layout.squeezeInto(0, 0, 300, 300);
-					let gfx = new MetaVector();
-					new DrawMolecule(layout, gfx).draw();
-					gfx.normalise();
-
-					let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
-					let domSVG = $(gfx.createSVG()).appendTo(div);
-				}
-				else td.html('<i>source</i>'); // only want to show the main molecule
-			}
-			else td.text(this.ds.getObject(row, n).toString());
-
-			// special deal for formula
-			if (n == this.colFormula && this.ds.isNull(row, n))
-			{
-				let divBtn = $('<div></div>').appendTo(td);
-				divBtn.css({'text-align': 'center'});
-				let btnFormula = $('<button class="wmk-button wmk-button-default">Use</button>').appendTo(divBtn);
-				btnFormula.click(() => 
-				{
-					td.text(anal.calcFormula);
-					this.ds.setString(row, this.colFormula, anal.calcFormula);
-				});
-			}
-		}
-
-		setTimeout(() => this.processRow(row + 1), 1);
-	}
-
-	private finishAnalysis():void
+	// task is done
+	private finishedResults():void
 	{
 		this.btnAnalyse.prop('disabled', false);
+		this.btnEquivalence.prop('disabled', false);
 
-		let paraSave = $('<p></p>').appendTo(this.divResults);
+		let paraSave = $('<p></p>').appendTo(this.divOutcome);
 		paraSave.css({'text-align': 'center'});
 		let btnSave = $('<button class="wmk-button wmk-button-primary">Save</button>').appendTo(paraSave);
 		btnSave.click(() => this.saveFile());

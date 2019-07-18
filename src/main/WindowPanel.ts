@@ -28,7 +28,7 @@ export class WindowPanel
 	}
 
 	// stub: may be called early on to provide a source file upon which to work
-	public loadFile(filename:string):void
+	public selectFile(filename:string):void
 	{
 	}
 
