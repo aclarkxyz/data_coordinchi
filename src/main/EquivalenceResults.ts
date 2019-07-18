@@ -94,41 +94,174 @@ export class EquivalenceResults
 		let flex = $('<div></div>').appendTo(td);
 		flex.css({'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'flex-start', 'align-items': 'flex-start'});
 
-		for (let n = 0; n < this.colMol.length; n++) if (this.ds.notNull(row, this.colMol[n]))
+		let nmol = this.colMol.length;
+		for (let n = 0; n < nmol; n++) if (this.ds.notNull(row, this.colMol[n]))
 		{
 			let mol = this.ds.getMolecule(row, this.colMol[n]);
 			let inchi = this.colInChI[n] >= 0 ? this.ds.getString(row, this.colInChI[n]) : null;
-			let card = this.generateCard(mol, inchi);
+			let card = this.generateCard(mol, inchi, 300);
+			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 			flex.append(card);
+		}
+
+		// compare InChI's within same row: they are expected to be the same
+		for (let i = 0; i < nmol - 1; i++) for (let j = i + 1; j < nmol; j++) 
+		{
+			let inchi1 = this.colInChI[i] >= 0 ? this.ds.getString(row, this.colInChI[i]) : null;
+			let inchi2 = this.colInChI[j] >= 0 ? this.ds.getString(row, this.colInChI[j]) : null;
+			if (inchi1 && inchi2 && inchi1 != inchi2)
+			{
+				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(row, this.colMol[j]);
+				let card1 = this.generateCard(mol1, inchi1, 200), card2 = this.generateCard(mol2, inchi2, 200);
+				
+				let dualCard = $('<div></div>').appendTo(flex);
+				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
+				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
+
+				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
+				divHdr.text('should be same');
+
+				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
+				divMols.append(card1);
+				divMols.append(card2);
+			}
+		}
+
+		// compare InChI's between different rows: they are expected to be different
+		for (let n = 0; n < this.ds.numRows; n++) if (n != row)
+			for (let i = 0; i < nmol; i++) for (let j = 0; j < nmol; j++)
+		{
+			let inchi1 = this.colInChI[i] >= 0 ? this.ds.getString(row, this.colInChI[i]) : null;
+			let inchi2 = this.colInChI[j] >= 0 ? this.ds.getString(n, this.colInChI[j]) : null;
+
+			if (inchi1 && inchi2 && inchi1 == inchi2)
+			{
+				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(n, this.colMol[j]);
+				let card1 = this.generateCard(mol1, inchi1, 200), card2 = this.generateCard(mol2, inchi2, 200);
+				
+				let dualCard = $('<div></div>').appendTo(flex);
+				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
+				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800080'});
+
+				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#800080'});
+				divHdr.text('false equivalence');
+
+				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
+				divMols.append(card1);
+				divMols.append(card2);
+			}
 		}
 
 		setTimeout(() => this.processRow(row + 1), 1);
 	}
 
 	// creates a rectangular DOM block that shows a molecule & its InChI, if available
-	private generateCard(mol:Molecule, inchi:string):JQuery
+	private generateCard(mol:Molecule, inchi:string, dimsz:number):JQuery
 	{
 		let div = $('<div></div>');
 		div.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
-		div.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 
 		let divMol = $('<div></div>').appendTo(div).css({'text-align': 'center'});
 		let layout = new ArrangeMolecule(mol, this.measure, this.policy, this.effects);
 		layout.arrange();
-		layout.squeezeInto(0, 0, 300, 300);
+		layout.squeezeInto(0, 0, dimsz, dimsz);
 		let gfx = new MetaVector();
 		new DrawMolecule(layout, gfx).draw();
 		gfx.normalise();
 		$(gfx.createSVG()).appendTo(divMol);
 
+		let divFormula = $('<div></div>').appendTo(div).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
+		divFormula.html(MolUtil.molecularFormula(mol, ['<sub>', '</sub>', '<sup>', '</sup>']));
+
 		if (inchi)
 		{
-			let maxWidth = Math.max(300, gfx.boundHighX() - gfx.boundLowX());
-			let divInChI = $('<div></div>').appendTo(div).css({'text-align': 'left', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
-			divInChI.text(inchi);
+			let maxWidth = Math.max(dimsz, gfx.boundHighX() - gfx.boundLowX());
+			let divInChI = $('<div></div>').appendTo(div).css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
+
+			let bits = /^(InChI=1S\/)([\w\d\.]+)(\/.*)$/.exec(inchi);
+			if (!bits)
+			{
+				let span = $('<span></span>').appendTo(divInChI);
+				span.css({'color': 'white', 'background-color': '#800000'});
+				span.text(inchi);
+			}
+			else if (!this.sameFormula(bits[2], mol))
+			{
+				divInChI.append(escapeHTML(bits[1]));
+				let span = $('<span></span>').appendTo(divInChI);
+				span.css({'color': 'white', 'background-color': '#800000'});
+				span.text(bits[2]);
+				divInChI.append(escapeHTML(bits[3]));
+			}
+			else // all good
+			{
+				divInChI.text(inchi);
+			}
 		}
 
 		return div;
+	}
+
+	// returns true if the InChI-derived formula is the same as the molecule's formula
+	private sameFormula(formula:string, mol:Molecule):boolean
+	{
+		let makeMap = (str:string):{[id:string] : number} =>
+		{
+			let map:{[id:string] : number} = {};
+			let mul = 1;
+			while (str)
+			{			
+				let grp = /^[\.\s]+(.*)$/.exec(str);
+				if (grp) 
+				{
+					str = grp[1];
+					mul = 1;
+					continue;
+				}
+				grp = /^([A-Z][a-z]?)(\d+)(.*)/.exec(str);
+				if (grp)
+				{
+					let el = grp[1], num = parseInt(grp[2]) * mul;
+					map[el] = (map[el] || 0) + num;
+					str = grp[3];
+					continue;
+				}
+				grp = /^([A-Z][a-z]?)(.*)/.exec(str);
+				if (grp)
+				{
+					let el = grp[1], num = 1 * mul;
+					map[el] = (map[el] || 0) + num;
+					str = grp[2];
+					continue;
+				}
+				grp = /^(\d+)(.*)/.exec(str);
+				if (grp)
+				{
+					mul = parseInt(grp[1]);
+					str = grp[2];
+					continue;
+				}
+				throw 'Unparseable formula: ' + str;
+			}
+			return map;
+		};
+
+		let map1 = makeMap(formula);
+		let map2 = makeMap(MolUtil.molecularFormula(mol));
+		if (map1 == null || map2 == null) return false;
+		if (Object.keys(map1).length != Object.keys(map2).length) return false;
+		if (map1.size != map2.size) return false;
+		for (let el in map1) if (map1[el] != map2[el])
+		{
+			/*console.log('M1:'+formula);
+			console.log('    '+JSON.stringify(map1));
+			console.log('M2:'+MolUtil.molecularFormula(mol));
+			console.log('    '+JSON.stringify(map2));
+			throw "fnord";*/
+			return false;
+		}
+
+		return true;
 	}
 }
 
