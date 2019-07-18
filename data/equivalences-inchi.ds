@@ -3,7 +3,7 @@
 <Summary>
 <Title>Equivalent variations</Title>
 <Description><![CDATA[Blocks of molecules that should generate the same identifier]]></Description></Summary>
-<Header ncols="10" nrows="69">
+<Header ncols="10" nrows="70">
 <Column id="1" name="Molecule" type="molecule">Molecular structure</Column>
 <Column id="2" name="Equiv1" type="molecule"></Column>
 <Column id="3" name="Equiv2" type="molecule"></Column>
@@ -6288,6 +6288,21 @@ O=1.5000,0.0000;-1,0,i1,n14
 <Cell id="9"/>
 <Cell id="10"/></Row>
 <Row id="67">
+<Cell id="1"><![CDATA[SketchEl!(2,0)
+Li=0.0000,0.0000;0,0,i0
+O=1.5000,0.0000;0,0,i2
+!End
+]]></Cell>
+<Cell id="2"/>
+<Cell id="3"/>
+<Cell id="4"/>
+<Cell id="5"/>
+<Cell id="6"><![CDATA[InChI=1S/Li.H2O.H/h;1H2;]]></Cell>
+<Cell id="7"/>
+<Cell id="8"/>
+<Cell id="9"/>
+<Cell id="10"/></Row>
+<Row id="68">
 <Cell id="1"><![CDATA[SketchEl!(7,6)
 Fe=0.0000,0.0000;3,0,i0,n2
 O=0.0000,1.8150;0,0,i2,n13
@@ -6328,7 +6343,7 @@ O=-1.5718,-0.9075;1,0,i2,n17
 <Cell id="8"/>
 <Cell id="9"/>
 <Cell id="10"/></Row>
-<Row id="68">
+<Row id="69">
 <Cell id="1"><![CDATA[SketchEl!(6,6)
 Cr=-5.6828,7.5116;1,0,i0
 C=-6.9819,6.7616;0,0,i1
@@ -6367,7 +6382,7 @@ C=-4.3838,6.7616;0,0,i1
 <Cell id="8"/>
 <Cell id="9"/>
 <Cell id="10"/></Row>
-<Row id="69">
+<Row id="70">
 <Cell id="1"><![CDATA[SketchEl!(6,6)
 Cr=-5.6828,7.5116;0,0,i0
 C=-6.9819,6.7616;0,0,i1
