@@ -114,11 +114,11 @@ export class CoordPanel extends WindowPanel
 		divRun.css({'display': 'flex', 'justify-content': 'center'});
 		
 		this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Analyse</button>').appendTo(divRun).css({'margin': '0.5em'});
-		addTooltip(this.btnAnalyse, 'Show the datasheet and look for structure validity issues.');
+		//addTooltip(this.btnAnalyse, 'Show the datasheet and look for structure validity issues.');
 		this.btnAnalyse.click(() => this.runAnalysis());
 		
 		this.btnEquivalence = $('<button class="wmk-button wmk-button-primary">Equivalence</button>').appendTo(divRun).css({'margin': '0.5em'});
-		addTooltip(this.btnEquivalence, 'Display equivalences between related structures.');
+		//addTooltip(this.btnEquivalence, 'Display equivalences between related structures.');
 		this.btnEquivalence.click(() => this.runEquivalence());
 
 		this.divResults = $('<div></div>').appendTo(divMain);

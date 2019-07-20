@@ -13,11 +13,15 @@
 ///<reference path='../../../WebMolKit/src/data/Molecule.ts'/>
 ///<reference path='../../../WebMolKit/src/data/MoleculeStream.ts'/>
 ///<reference path='../../../WebMolKit/src/data/MDLWriter.ts'/>
+///<reference path='../../../WebMolKit/src/gfx/Rendering.ts'/>
+///<reference path='../../../WebMolKit/src/gfx/ArrangeMolecule.ts'/>
+///<reference path='../../../WebMolKit/src/gfx/DrawMolecule.ts'/>
 
 ///<reference path='../decl/node.d.ts'/>
 ///<reference path='../decl/electron.d.ts'/>
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
+///<reference path='ZoomDotMol.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -99,9 +103,12 @@ export class EquivalenceResults
 		{
 			let mol = this.ds.getMolecule(row, this.colMol[n]);
 			let inchi = this.colInChI[n] >= 0 ? this.ds.getString(row, this.colInChI[n]) : null;
-			let card = this.generateCard(mol, inchi, 300);
+			let [card, spanMol] = this.generateCard(mol, inchi, 300);
 			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 			flex.append(card);
+			spanMol.mouseenter(() => spanMol.css({'background-color': '#C0C0C0', 'border-radius': '5px'}));
+			spanMol.mouseleave(() => spanMol.css('background-color', 'transparent'));
+			spanMol.click(() => new ZoomDotMol(mol).open());
 		}
 
 		// compare InChI's within same row: they are expected to be the same
@@ -112,7 +119,7 @@ export class EquivalenceResults
 			if (inchi1 && inchi2 && inchi1 != inchi2)
 			{
 				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(row, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, 200), card2 = this.generateCard(mol2, inchi2, 200);
+				let card1 = this.generateCard(mol1, inchi1, 200)[0], card2 = this.generateCard(mol2, inchi2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
@@ -137,7 +144,7 @@ export class EquivalenceResults
 			if (inchi1 && inchi2 && inchi1 == inchi2)
 			{
 				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(n, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, 200), card2 = this.generateCard(mol2, inchi2, 200);
+				let card1 = this.generateCard(mol1, inchi1, 200)[0], card2 = this.generateCard(mol2, inchi2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
@@ -156,7 +163,7 @@ export class EquivalenceResults
 	}
 
 	// creates a rectangular DOM block that shows a molecule & its InChI, if available
-	private generateCard(mol:Molecule, inchi:string, dimsz:number):JQuery
+	private generateCard(mol:Molecule, inchi:string, dimsz:number):[JQuery, JQuery]
 	{
 		let div = $('<div></div>');
 		div.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
@@ -168,7 +175,9 @@ export class EquivalenceResults
 		let gfx = new MetaVector();
 		new DrawMolecule(layout, gfx).draw();
 		gfx.normalise();
-		$(gfx.createSVG()).appendTo(divMol);
+		let spanMol = $('<span></span>').appendTo(divMol);
+		spanMol.css('display', 'inline-block');
+		$(gfx.createSVG()).appendTo(spanMol);
 
 		let divFormula = $('<div></div>').appendTo(div).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
 		divFormula.html(MolUtil.molecularFormula(mol, ['<sub>', '</sub>', '<sup>', '</sup>']));
@@ -182,14 +191,14 @@ export class EquivalenceResults
 			if (!bits)
 			{
 				let span = $('<span></span>').appendTo(divInChI);
-				span.css({'color': 'white', 'background-color': '#800000'});
+				span.css({'color': 'white', 'background-color': '#4E1A09'});
 				span.text(inchi);
 			}
 			else if (!this.sameFormula(bits[2], mol))
 			{
 				divInChI.append(escapeHTML(bits[1]));
 				let span = $('<span></span>').appendTo(divInChI);
-				span.css({'color': 'white', 'background-color': '#800000'});
+				span.css({/*'color': 'white', */'background-color': '#E0E000'});
 				span.text(bits[2]);
 				divInChI.append(escapeHTML(bits[3]));
 			}
@@ -199,7 +208,7 @@ export class EquivalenceResults
 			}
 		}
 
-		return div;
+		return [div, spanMol];
 	}
 
 	// returns true if the InChI-derived formula is the same as the molecule's formula
