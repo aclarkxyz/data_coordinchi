@@ -19,6 +19,7 @@
 
 ///<reference path='../decl/node.d.ts'/>
 ///<reference path='../decl/electron.d.ts'/>
+///<reference path='../data/DotHash.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -56,9 +57,8 @@ export class ZoomDotMol extends Dialog
 		this.policy = RenderPolicy.defaultColourOnWhite();
 		this.policy.data.pointScale = 35;
 		this.effects = new RenderEffects();
-		this.measure = new OutlineMeasurement(0, 0, this.policy.data.pointScale);		
+		this.measure = new OutlineMeasurement(0, 0, this.policy.data.pointScale);
 	}
-
 
 	// ------------ private methods ------------
 

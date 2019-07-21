@@ -125,6 +125,26 @@ export class CoordPanel extends WindowPanel
 		this.divOutcome = $('<div></div>').appendTo(divMain);
 
 		this.inputFile.focus();
+
+// !!
+/*		let mol = Molecule.fromString(
+			'SketchEl!(6,6)\n' +
+			'Pt=0.0000,0.0000;-1,0,i0\n' +
+			'Cl=1.5000,0.0000;0,0,i0\n' +
+			'Cl=0.0000,1.5000;0,0,i0\n' +
+			'Cl=0.0000,-1.5000;0,0,i0\n' +
+			'C=-1.5990,0.7500;0,0,i2\n' +
+			'C=-1.5990,-0.7500;0,0,i2\n' +
+			'1-2=1,0\n' +
+			'1-3=1,0\n' +
+			'1-4=1,0\n' +
+			'1-5=0,0\n' +
+			'5-6=2,0\n' +
+			'6-1=0,0\n' +
+			'!End');	
+		let dh = new DotHash(new DotPath(mol));
+		console.log('DOTHASH:'+dh.calculate());	
+*/
 	}
 
 	private pickFilename():void

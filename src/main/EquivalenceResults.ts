@@ -30,20 +30,21 @@ namespace WebMolKit /* BOF */ {
 	of the other rows.
 */
 
+interface EquivalenceRow
+{
+	molList:Molecule[];
+	inchiList:string[];
+	dhashList:string[];
+}
+
 export class EquivalenceResults
 {
 	private divContent:JQuery;
 	private tableRows:JQuery;
-
-	/*private colMol:number;
-	private colFormula:number;
-	private colError:number;
-	private colWarning:number;
-	private colFixed:number;
-	private tableResults:JQuery = null;*/
 	
 	private colMol:number[] = [];
 	private colInChI:number[] = [];
+	private rows:EquivalenceRow[] = [];
 
 	protected policy:RenderPolicy;
 	protected effects:RenderEffects;
@@ -76,6 +77,18 @@ export class EquivalenceResults
 			this.colMol.push(n);
 			this.colInChI.push(this.ds.findColByName(this.ds.colName(n) + 'InChI', DataSheet.COLTYPE_STRING));
 		}
+		for (let n = 0; n < this.ds.numRows; n++)
+		{
+			let eqr:EquivalenceRow = {'molList': [], 'inchiList': [], 'dhashList': []};
+			for (let i = 0; i < this.colMol.length; i++) if (this.ds.notNull(n, this.colMol[i]))
+			{
+				let mol = this.ds.getMolecule(n, this.colMol[i]);
+				eqr.molList.push(mol);
+				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
+				eqr.dhashList.push(new DotHash(new DotPath(mol)).calculate());
+			}
+			this.rows.push(eqr);
+		}
 
 		this.tableRows = $('<table></table>').appendTo(this.divContent);
 
@@ -98,12 +111,16 @@ export class EquivalenceResults
 		let flex = $('<div></div>').appendTo(td);
 		flex.css({'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'flex-start', 'align-items': 'flex-start'});
 
-		let nmol = this.colMol.length;
-		for (let n = 0; n < nmol; n++) if (this.ds.notNull(row, this.colMol[n]))
+		let eqr = this.rows[row];
+		let nmol = eqr.molList.length;
+		for (let n = 0; n < nmol; n++)
 		{
-			let mol = this.ds.getMolecule(row, this.colMol[n]);
-			let inchi = this.colInChI[n] >= 0 ? this.ds.getString(row, this.colInChI[n]) : null;
-			let [card, spanMol] = this.generateCard(mol, inchi, 300);
+			let mol = eqr.molList[n], inchi = eqr.inchiList[n], dhash = eqr.dhashList[n]
+
+			// optionally take this opportunity to make sure that permuted versions are the same
+			//this.investigateHashes(mol, dhash);
+
+			let [card, spanMol] = this.generateCard(mol, inchi, dhash, 300);
 			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 			flex.append(card);
 			spanMol.mouseenter(() => spanMol.css({'background-color': '#C0C0C0', 'border-radius': '5px'}));
@@ -114,19 +131,22 @@ export class EquivalenceResults
 		// compare InChI's within same row: they are expected to be the same
 		for (let i = 0; i < nmol - 1; i++) for (let j = i + 1; j < nmol; j++) 
 		{
-			let inchi1 = this.colInChI[i] >= 0 ? this.ds.getString(row, this.colInChI[i]) : null;
-			let inchi2 = this.colInChI[j] >= 0 ? this.ds.getString(row, this.colInChI[j]) : null;
-			if (inchi1 && inchi2 && inchi1 != inchi2)
+			let inchi1 = eqr.inchiList[i], inchi2 = eqr.inchiList[j];
+			let dhash1 = eqr.dhashList[i], dhash2 = eqr.dhashList[j];
+			let badInChI = inchi1 && inchi2 && inchi1 != inchi2, badHash = dhash1 != dhash2
+			if (badInChI || badHash)
 			{
 				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(row, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, 200)[0], card2 = this.generateCard(mol2, inchi2, 200)[0];
+				let card1 = this.generateCard(mol1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, inchi2, dhash2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
 
 				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
-				divHdr.text('should be same');
+				if (badInChI && badHash) divHdr.text('InChI & dots both different');
+				else if (badInChI) divHdr.text('InChI codes differ');
+				else if (badHash) divHdr.text('Dot-hashes differ');
 
 				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
@@ -135,23 +155,28 @@ export class EquivalenceResults
 		}
 
 		// compare InChI's between different rows: they are expected to be different
-		for (let n = 0; n < this.ds.numRows; n++) if (n != row)
-			for (let i = 0; i < nmol; i++) for (let j = 0; j < nmol; j++)
+		for (let n = 0; n < this.rows.length; n++) if (n != row)
+			for (let i = 0; i < nmol; i++) for (let j = 0; j < this.rows[n].molList.length; j++)
 		{
-			let inchi1 = this.colInChI[i] >= 0 ? this.ds.getString(row, this.colInChI[i]) : null;
-			let inchi2 = this.colInChI[j] >= 0 ? this.ds.getString(n, this.colInChI[j]) : null;
+			let other = this.rows[n];
 
-			if (inchi1 && inchi2 && inchi1 == inchi2)
+			let inchi1 = eqr.inchiList[i], inchi2 = other.inchiList[j];
+			let dhash1 = eqr.dhashList[i], dhash2 = other.dhashList[j];
+			let badInChI = inchi1 && inchi2 && inchi1 == inchi2, badHash = dhash1 == dhash2
+
+			if (badInChI || badHash)
 			{
 				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(n, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, 200)[0], card2 = this.generateCard(mol2, inchi2, 200)[0];
+				let card1 = this.generateCard(mol1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, inchi2, dhash2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800080'});
 
 				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#800080'});
-				divHdr.text('false equivalence');
+				if (badInChI && badHash) divHdr.text('InChI & dots falsely equivalent');
+				else if (badInChI) divHdr.text('InChI codes falsely equivalent');
+				else if (badHash) divHdr.text('Dot-hashes falsely equivalent');
 
 				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
@@ -163,7 +188,7 @@ export class EquivalenceResults
 	}
 
 	// creates a rectangular DOM block that shows a molecule & its InChI, if available
-	private generateCard(mol:Molecule, inchi:string, dimsz:number):[JQuery, JQuery]
+	private generateCard(mol:Molecule, inchi:string, dhash:string, dimsz:number):[JQuery, JQuery]
 	{
 		let div = $('<div></div>');
 		div.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
@@ -206,6 +231,14 @@ export class EquivalenceResults
 			{
 				divInChI.text(inchi);
 			}
+		}
+		if (dhash)
+		{
+			let maxWidth = Math.max(dimsz, gfx.boundHighX() - gfx.boundLowX());
+			let divHash = $('<div></div>').appendTo(div);
+			divHash.css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word', 'margin-top': '0.1em'});
+			divHash.css({'border-top': '1px solid #C0C0C0'});
+			divHash.text(dhash);
 		}
 
 		return [div, spanMol];
@@ -271,6 +304,24 @@ export class EquivalenceResults
 		}
 
 		return true;
+	}
+
+	// try some variations on dotpath-hash generation
+	private investigateHashes(mol:Molecule, dhash:string)
+	{
+		if (mol.numAtoms <= 1) return;
+		for (let count = 20, n = 0; count > 0; count--, n++)
+		{
+			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
+			mol.swapAtoms(a1, a2);
+			let phash = new DotHash(new DotPath(mol)).calculate();
+			if (dhash != phash) 
+			{
+				console.log('ORIGINAL:' + dhash);
+				console.log('PERMUTED:' + phash);
+				throw 'Dot hashes differ';
+			}
+		}
 	}
 }
 
