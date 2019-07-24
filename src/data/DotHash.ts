@@ -62,7 +62,7 @@ export class DotHash
 	// perform any necessary adjustments prior to creating the path
 	private prepareMolecule():void
 	{
-		let mol = this.dot.mol;
+		let mol = this.dot.mol, na = mol.numAtoms;
 
 		// count up implicit hydrogens
 		this.hcount = [];
@@ -73,17 +73,35 @@ export class DotHash
 		for (let pblk of this.dot.paths) for (let a of pblk.atoms) pathMask[a - 1] = true;
 
 		let keepMask = Vec.booleanArray(true, mol.numAtoms);
-		for (let n = 1; n <= mol.numAtoms; n++) if (!pathMask[n - 1] && MolUtil.boringHydrogen(mol, n)) 
+		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.boringHydrogen(mol, n)) 
 		{
 			this.hcount[mol.atomAdjList(n)[0] - 1]++;
 			keepMask[n - 1] = false;
 		}
+		for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
 		if (Vec.anyFalse(keepMask))
 		{
 			mol = MolUtil.subgraphMask(mol, keepMask);
 			this.hcount = Vec.maskGet(this.hcount, keepMask);
 			this.dot = new DotPath(mol);
 		}
+	}
+
+	// same as the public method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also allowed to
+	// snip hydrogens bonded to exotic elements
+	private boringHydrogen(mol:Molecule, atom:number):boolean
+	{
+		if (mol.atomElement(atom) != 'H') return false;
+
+		if (mol.atomCharge(atom) != 0 || mol.atomUnpaired(atom) != 0) return false;
+		if (mol.atomIsotope(atom) != Molecule.ISOTOPE_NATURAL) return false;
+		if (mol.atomAdjCount(atom) != 1) return false;
+		let other = mol.atomAdjList(atom)[0];
+		if (mol.atomElement(other) == 'H') return false;
+		let bond = mol.atomAdjBonds(atom)[0];
+		if (mol.bondOrder(bond) != 1) return false;
+		
+		return true;
 	}
 
 	// setup the initial priority values prior to iterative convergence

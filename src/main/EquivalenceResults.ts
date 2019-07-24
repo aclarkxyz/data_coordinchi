@@ -146,7 +146,7 @@ export class EquivalenceResults
 				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
 				if (badInChI && badHash) divHdr.text('InChI & dots both different');
 				else if (badInChI) divHdr.text('InChI codes differ');
-				else if (badHash) divHdr.text('Dot-hashes differ');
+				else if (badHash) divHdr.text('dot-hashes differ');
 
 				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
