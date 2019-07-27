@@ -212,7 +212,7 @@ export class EquivalenceResults
 			let maxWidth = Math.max(dimsz, gfx.boundHighX() - gfx.boundLowX());
 			let divInChI = $('<div></div>').appendTo(div).css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
 
-			let bits = /^(InChI=1S\/)([\w\d\.]+)(\/.*)$/.exec(inchi);
+			let bits = /^(InChI=1S?\/)([\w\d\.]+)(\/.*)$/.exec(inchi);
 			if (!bits)
 			{
 				let span = $('<span></span>').appendTo(divInChI);

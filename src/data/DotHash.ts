@@ -78,9 +78,11 @@ export class DotHash
 			this.hcount[mol.atomAdjList(n)[0] - 1]++;
 			keepMask[n - 1] = false;
 		}
-		for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
 		if (Vec.anyFalse(keepMask))
 		{
+			mol = mol.clone(); // !! MAKE IT a bit faster
+			for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
+
 			mol = MolUtil.subgraphMask(mol, keepMask);
 			this.hcount = Vec.maskGet(this.hcount, keepMask);
 			this.dot = new DotPath(mol);
