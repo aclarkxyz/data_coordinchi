@@ -83,9 +83,11 @@ export class EquivalenceResults
 			for (let i = 0; i < this.colMol.length; i++) if (this.ds.notNull(n, this.colMol[i]))
 			{
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
+				let molExpanded = mol.clone();
+				MolUtil.expandAbbrevs(molExpanded, false);
 				eqr.molList.push(mol);
 				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
-				eqr.dhashList.push(new DotHash(new DotPath(mol)).calculate());
+				eqr.dhashList.push(new DotHash(new DotPath(molExpanded)).calculate());
 			}
 			this.rows.push(eqr);
 		}
