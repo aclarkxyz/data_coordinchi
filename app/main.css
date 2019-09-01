@@ -38,6 +38,20 @@ a:active
 	color: #80C080;
 }
 
+/* mouse hover similar to clickable link */
+.hover_action
+{ 
+	text-decoration: none; 
+	color: inherit;
+	cursor: inherit;
+} 
+.hover_action
+{ 
+	text-decoration: underline;
+	color: #408040;
+	cursor: pointer;
+}
+
 /* index arrangements */
 
 div.div_main

@@ -39,9 +39,20 @@ interface EquivalenceRow
 
 export class EquivalenceResults
 {
+	private cancelled = false;
+	private divSummary:JQuery;
 	private divContent:JQuery;
-	private tableRows:JQuery;
+	private tableContent:JQuery;
+	private tableRows:JQuery[] = [];
 	
+	private numPassed = 0;
+	private numFailed = 0;
+	private rowsFailed:number[] = [];
+	private spanPassed:JQuery;
+	private spanFailed:JQuery;
+	private spanStatus:JQuery;
+	private paraFailures:JQuery;
+
 	private colMol:number[] = [];
 	private colInChI:number[] = [];
 	private rows:EquivalenceRow[] = [];
@@ -56,9 +67,10 @@ export class EquivalenceResults
 	{
 	}
 
-	public render(parent:JQuery):void
+	public render(parentSummary:JQuery, parentContent:JQuery):void
 	{
-		this.divContent = $('<div></div>').appendTo(parent);
+		this.divSummary = $('<div></div>').appendTo(parentSummary);
+		this.divContent = $('<div></div>').appendTo(parentContent);
 
 		this.policy = RenderPolicy.defaultColourOnWhite();
 		this.policy.data.pointScale = 15;
@@ -68,10 +80,27 @@ export class EquivalenceResults
 		this.startAnalysis();
 	}
 
+	public cancel():void
+	{
+		this.cancelled = true;
+	}
+
 	// ------------ private methods ------------
 
 	private startAnalysis():void
 	{
+		// setup the summary panel
+		let divStats = $('<div></div>').appendTo(this.divSummary);
+		divStats.append('Passed ');
+		this.spanPassed = $('<span></span>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
+		divStats.append(' Failed ');
+		this.spanFailed = $('<span></span>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
+		divStats.append(' ');
+		this.spanStatus = $('<span></span>').appendTo(divStats);
+		this.paraFailures = $('<div></div>').appendTo(this.divSummary);
+		this.updateStats();
+
+		// setup the table
 		for (let n = 0; n < this.ds.numCols; n++) if (this.ds.colType(n) == DataSheet.COLTYPE_MOLECULE)
 		{
 			this.colMol.push(n);
@@ -92,20 +121,28 @@ export class EquivalenceResults
 			this.rows.push(eqr);
 		}
 
-		this.tableRows = $('<table></table>').appendTo(this.divContent);
+		this.tableContent = $('<table></table>').appendTo(this.divContent);
 
 		this.processRow(0);
 	}
 
 	private processRow(row:number):void
 	{
+		if (this.cancelled)
+		{
+			this.spanStatus.text('Cancelled');
+			return;
+		}
+
 		if (row >= this.ds.numRows)
 		{
+			this.spanStatus.text('Finished');
 			this.callbackDone();
 			return;
 		}
 
-		let tr = $('<tr></tr>').appendTo(this.tableRows);
+		let tr = $('<tr></tr>').appendTo(this.tableContent);
+		this.tableRows.push(tr);
 		let th = $('<th></th>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top'});
 		th.text('Row ' + (row + 1));
 
@@ -131,7 +168,8 @@ export class EquivalenceResults
 		}
 
 		// compare InChI's within same row: they are expected to be the same
-		for (let i = 0; i < nmol - 1; i++) for (let j = i + 1; j < nmol; j++) 
+		let hasProblem = false;
+		for (let i = 0; i < nmol - 1; i++) for (let j = i + 1; j < nmol; j++)
 		{
 			let inchi1 = eqr.inchiList[i], inchi2 = eqr.inchiList[j];
 			let dhash1 = eqr.dhashList[i], dhash2 = eqr.dhashList[j];
@@ -154,6 +192,7 @@ export class EquivalenceResults
 				divMols.append(card1);
 				divMols.append(card2);
 			}
+			if (badHash) hasProblem = true;
 		}
 
 		// compare InChI's between different rows: they are expected to be different
@@ -176,15 +215,25 @@ export class EquivalenceResults
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800080'});
 
 				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#800080'});
-				if (badInChI && badHash) divHdr.text('InChI & dots falsely equivalent');
-				else if (badInChI) divHdr.text('InChI codes falsely equivalent');
-				else if (badHash) divHdr.text('Dot-hashes falsely equivalent');
+				let rowstr = ' [' + (row + 1) + ',' + (n + 1) + ']';
+				if (badInChI && badHash) divHdr.text('InChI & dots falsely equivalent' + rowstr);
+				else if (badInChI) divHdr.text('InChI codes falsely equivalent' + rowstr);
+				else if (badHash) divHdr.text('Dot-hashes falsely equivalent' + rowstr);
 
 				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
 				divMols.append(card2);
 			}
+			if (badHash) hasProblem = true;
 		}
+
+		if (hasProblem) 
+		{
+			this.numFailed++;
+			this.rowsFailed.push(row);
+		}
+		else this.numPassed++;
+		this.updateStats();
 
 		setTimeout(() => this.processRow(row + 1), 1);
 	}
@@ -208,6 +257,9 @@ export class EquivalenceResults
 
 		let divFormula = $('<div></div>').appendTo(div).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
 		divFormula.html(MolUtil.molecularFormula(mol, ['<sub>', '</sub>', '<sup>', '</sup>']));
+		let chg = 0;
+		for (let n = 1; n <= mol.numAtoms; n++) chg += mol.atomCharge(n);
+		divFormula.append(' [a=' + mol.numAtoms + ',b=' + mol.numBonds + ',c=' + chg + ']');
 
 		if (inchi)
 		{
@@ -322,6 +374,27 @@ export class EquivalenceResults
 				console.log('ORIGINAL:' + dhash);
 				console.log('PERMUTED:' + phash);
 				throw 'Dot hashes differ';
+			}
+		}
+	}
+
+	// make sure panel is current
+	private updateStats():void
+	{
+		this.spanPassed.text(this.numPassed.toString());
+		this.spanFailed.text(this.numFailed.toString());
+		this.spanStatus.text('Processing');
+
+		this.paraFailures.empty();
+		if (this.rowsFailed.length > 0)
+		{
+			this.paraFailures.append('Failure Rows:');
+			for (let row of this.rowsFailed)
+			{
+				this.paraFailures.append(' ');
+				let span = $('<span class="hover_action"></span>').appendTo(this.paraFailures);
+				span.text((row + 1).toString());
+				span.click(() => $('html, body').animate({'scrollTop': this.tableRows[row].offset().top}, 500));
 			}
 		}
 	}

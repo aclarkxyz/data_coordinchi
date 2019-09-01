@@ -25,7 +25,8 @@
 				//"data/csd-selection.ds"
 				//"data/pubchem-selection.ds"
 				//"data/equivalences-inchi.ds"
-				"data/csd-diagrams.ds"
+				//"data/csd-diagrams.ds"
+				"data/equivalences.ds"
 			],
 			"protocol": "inspector"
 		},
