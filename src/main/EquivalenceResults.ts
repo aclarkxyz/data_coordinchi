@@ -163,7 +163,7 @@ export class EquivalenceResults
 			return;
 		}
 
-		let tr = $('<tr></tr>').appendTo(this.tableContent);
+		let tr = $('<tr></tr>');
 		this.tableRows.push(tr);
 		let th = $('<th></th>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top'});
 		th.text('Row ' + (row + 1));
@@ -214,7 +214,7 @@ export class EquivalenceResults
 				divMols.append(card1);
 				divMols.append(card2);
 			}
-			if (badHash) hasProblem = true;
+			if (badHash || (badInChI && this.opt.inchiFail)) hasProblem = true;
 		}
 
 		// compare InChI's between different rows: they are expected to be different
@@ -246,8 +246,11 @@ export class EquivalenceResults
 				divMols.append(card1);
 				divMols.append(card2);
 			}
-			if (badHash) hasProblem = true;
+			if (badHash || (badInChI && this.opt.inchiFail)) hasProblem = true;
 		}
+
+		// by default add the row, unless the user has asked to skip failures
+		if (hasProblem || !this.opt.failOnly) this.tableContent.append(tr);
 
 		if (hasProblem) 
 		{
