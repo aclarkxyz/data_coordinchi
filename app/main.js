@@ -24,15 +24,8 @@ for (let n = 0; n < argv.length; n++) if (argv[n] == 'app/main.js') {argv.splice
 argv.shift();
 for (let n = 0; n < argv.length; n++)
 {
-	/*if (argv[n] == '--analyze')
-	{
-		let cmds = [];
-		for (let i = n + 1; i < argv.length; i++) cmds.push(argv[i]);
-		eval(fs.readFileSync('app/coordinchi.js').toString());
-		new WebMolKit.AnalyseDataSheets(cmds).exec();
-		return;
-	}
-	elsea*/ if (argv[n].startsWith('-')) {}
+	if (argv[n] == '--inchi' && n < argv.length - 1) global['INCHI_EXEC'] = argv[++n];
+	else if (argv[n].startsWith('-')) {}
 	else files.push(argv[n]);
 	// (... consider other options...)
 }
@@ -203,15 +196,4 @@ function setupMenu()
 
 	const menu = Menu.buildFromTemplate(template);
 	Menu.setApplicationMenu(menu);
-
-/*
-	//const ipcRenderer = electron.ipcRenderer;
-	const {ipcRenderer} = require('electron');
-console.log('IPC?'+!!ipcRenderer+"/"+electron+"/"+electron.ipcRenderer);
-for (let zog in electron) console.log('-- ' + zog);
-	ipcRenderer.on('menu', function(event, arg)
-	{
-      console.log('menu message reviced'); // appear on macOS, not appear on Windows.
-      if (arg == 'disable') menu.items[0].submenu.items[1].enabled = false;
-    });*/
 }

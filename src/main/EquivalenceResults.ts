@@ -22,6 +22,7 @@
 ///<reference path='../decl/electron.d.ts'/>
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
+///<reference path='../data/CallInChI.ts'/>
 ///<reference path='ZoomDotMol.ts'/>
 
 namespace WebMolKit /* BOF */ {
@@ -49,6 +50,8 @@ export interface EquivalenceResultsOptions
 export class EquivalenceResults
 {
 	private cancelled = false;
+	private rosterInChI:number[][] = []; // array of [row, molcol, inchicol]
+
 	private divSummary:JQuery;
 	private divContent:JQuery;
 	private tableContent:JQuery;
@@ -72,7 +75,7 @@ export class EquivalenceResults
 
 	// ------------ public methods ------------
 
-	constructor(private ds:DataSheet, private opt:EquivalenceResultsOptions, private callbackDone:() => void)
+	constructor(private ds:DataSheet, private callInChI:CallInChI, private opt:EquivalenceResultsOptions, private callbackDone:() => void)
 	{
 	}
 
@@ -96,6 +99,7 @@ export class EquivalenceResults
 
 	// ------------ private methods ------------
 
+	// get things setup, and start the chain of processing events
 	private startAnalysis():void
 	{
 		// setup the summary panel
@@ -113,8 +117,48 @@ export class EquivalenceResults
 		for (let n = 0; n < this.ds.numCols; n++) if (this.ds.colType(n) == DataSheet.COLTYPE_MOLECULE)
 		{
 			this.colMol.push(n);
-			this.colInChI.push(this.ds.findColByName(this.ds.colName(n) + 'InChI', DataSheet.COLTYPE_STRING));
+			this.colInChI.push(this.ds.ensureColumn(this.ds.colName(n) + 'InChI', DataSheet.COLTYPE_STRING, 'Computed InChI string'));
 		}
+
+		if (this.callInChI.isAvailable) for (let r = 0; r < this.ds.numRows; r++) for (let n = 0; n < this.colMol.length; n++)
+		{
+			let c1 = this.colMol[n], c2 = this.colInChI[n];
+			if (this.ds.notNull(r, c1)) this.rosterInChI.push([r, c1, c2]);
+		}
+
+		setTimeout(() => this.calcNextInChI(), 0);
+	}
+
+	// process the next rostered InChI, or continue to the next step
+	private calcNextInChI():void
+	{
+		if (this.cancelled)
+		{
+			this.spanStatus.text('Cancelled');
+			return;
+		}
+
+		if (this.rosterInChI.length == 0)
+		{
+			this.beginProcessing();
+			return;
+		}
+
+		this.spanStatus.text('InChI (' + this.rosterInChI.length + ')');
+
+		let [row, cm, ci] = this.rosterInChI.shift();
+		let mol = this.ds.getMolecule(row, cm);
+		let inchi = this.callInChI.calculate(mol).inchi;
+		this.ds.setString(row, ci, inchi);
+
+		setTimeout(() => this.calcNextInChI(), 0);
+	}
+
+	// begin the main analysis process
+	private beginProcessing():void
+	{
+		this.spanStatus.text('Preprocessing');
+
 		for (let n = 0; n < this.ds.numRows; n++)
 		{
 			let eqr:EquivalenceRow = {'molList': [], 'molExpanded': [], 'inchiList': [], 'dhashList': []};
@@ -176,9 +220,9 @@ export class EquivalenceResults
 		let nmol = eqr.molList.length;
 		for (let n = 0; n < nmol; n++)
 		{
-			let mol = eqr.molList[n], inchi = eqr.inchiList[n], dhash = eqr.dhashList[n]
+			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n], dhash = eqr.dhashList[n]
 
-			let [card, spanMol] = this.generateCard(mol, inchi, dhash, 300);
+			let [card, spanMol] = this.generateCard(mol, molExpanded, inchi, dhash, 300);
 			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 			flex.append(card);
 			spanMol.mouseenter(() => spanMol.css({'background-color': '#C0C0C0', 'border-radius': '5px'}));
@@ -186,7 +230,7 @@ export class EquivalenceResults
 			spanMol.click(() => new ZoomDotMol(mol).open());
 
 			// drill down on the hash codes in a bit more detail (sanity check)
-			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), eqr.molExpanded[n], dhash);
+			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), molExpanded, dhash);
 		}
 
 		// compare InChI's within same row: they are expected to be the same
@@ -198,8 +242,9 @@ export class EquivalenceResults
 			let badInChI = inchi1 && inchi2 && inchi1 != inchi2, badHash = dhash1 != dhash2
 			if (badInChI || badHash)
 			{
-				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(row, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, inchi2, dhash2, 200)[0];
+				let mol1 = eqr.molList[i], mol2 = eqr.molList[j];
+				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = eqr.molExpanded[j];
+				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
@@ -229,8 +274,9 @@ export class EquivalenceResults
 
 			if (badInChI || badHash)
 			{
-				let mol1 = this.ds.getMolecule(row, this.colMol[i]), mol2 = this.ds.getMolecule(n, this.colMol[j]);
-				let card1 = this.generateCard(mol1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, inchi2, dhash2, 200)[0];
+				let mol1 = eqr.molList[i], mol2 = other.molList[j];
+				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = other.molExpanded[j];
+				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
 				
 				let dualCard = $('<div></div>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
@@ -264,7 +310,7 @@ export class EquivalenceResults
 	}
 
 	// creates a rectangular DOM block that shows a molecule & its InChI, if available
-	private generateCard(mol:Molecule, inchi:string, dhash:string, dimsz:number):[JQuery, JQuery]
+	private generateCard(mol:Molecule, molExpanded:Molecule, inchi:string, dhash:string, dimsz:number):[JQuery, JQuery]
 	{
 		let div = $('<div></div>');
 		div.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
@@ -281,10 +327,10 @@ export class EquivalenceResults
 		$(gfx.createSVG()).appendTo(spanMol);
 
 		let divFormula = $('<div></div>').appendTo(div).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
-		divFormula.html(MolUtil.molecularFormula(mol, ['<sub>', '</sub>', '<sup>', '</sup>']));
+		divFormula.html(MolUtil.molecularFormula(molExpanded, ['<sub>', '</sub>', '<sup>', '</sup>']));
 		let chg = 0;
-		for (let n = 1; n <= mol.numAtoms; n++) chg += mol.atomCharge(n);
-		divFormula.append(' [a=' + mol.numAtoms + ',b=' + mol.numBonds + ',c=' + chg + ']');
+		for (let n = 1; n <= molExpanded.numAtoms; n++) chg += molExpanded.atomCharge(n);
+		divFormula.append(' [a=' + molExpanded.numAtoms + ',b=' + molExpanded.numBonds + ',c=' + chg + ']');
 
 		if (inchi)
 		{

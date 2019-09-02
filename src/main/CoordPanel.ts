@@ -17,6 +17,7 @@
 ///<reference path='../decl/electron.d.ts'/>
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
+///<reference path='../data/CallInChI.ts'/>
 ///<reference path='WindowPanel.ts'/>
 ///<reference path='AnalyzeResults.ts'/>
 ///<reference path='EquivalenceResults.ts'/>
@@ -30,6 +31,7 @@ namespace WebMolKit /* BOF */ {
 export class CoordPanel extends WindowPanel
 {
 	private proxyClip = new ClipboardProxy();
+	private callInChI:CallInChI;
 
 	private divHeader:JQuery;
 	private divSetup:JQuery;
@@ -57,6 +59,9 @@ export class CoordPanel extends WindowPanel
 		this.proxyClip.getString = ():string => clipboard.readText();
 		this.proxyClip.setString = (str:string):void => clipboard.writeText(str);
 		this.proxyClip.canAlwaysGet = ():boolean => true;
+
+		const remote = require('electron').remote;
+		this.callInChI = new CallInChI(remote.getGlobal('INCHI_EXEC'));
 
 		document.title = 'Coordination Analysis';
 
@@ -251,13 +256,14 @@ export class CoordPanel extends WindowPanel
 				'inchiFail': this.chkInChIFail.prop('checked'),
 				'startAt': parseInt(this.inputStartAt.val())
 			};
-			this.task = new EquivalenceResults(this.ds, opt, () => this.finishedResults());
+			this.task = new EquivalenceResults(this.ds, this.callInChI, opt, () => this.finishedResults());
 	
 			this.task.render(areaSummary, areaResults);
 			// TODO: fold AnalyseMolecule features into this 
 		}, 1);
 	}
 
+	// ask the task to cancel, then make re-running an option
 	private cancelAnalysis():void
 	{
 		if (this.task) this.task.cancel();
@@ -296,11 +302,34 @@ export class CoordPanel extends WindowPanel
 	// write the current file back to disk
 	private saveFile():void
 	{
-		let strXML = DataSheetStream.writeXML(this.ds);
-
-		const fs = require('fs');
-		try {fs.writeFileSync(this.filename, strXML);}
-		catch (ex) {throw 'Unable to write file: ' + this.filename;}
+		const electron = require('electron'), fs = require('fs');
+		const dialog = electron.remote.dialog; 
+		let params:any =
+		{
+			'title': 'Save Dataset',
+			'defaultPath': this.filename,
+			'filters':
+			[
+				{'name': 'DataSheet XML', 'extensions': ['ds']},
+				{'name': 'MDL SDfile', 'extensions': ['sdf']}
+			]
+		};
+		dialog.showSaveDialog(params, (filename:string):void =>
+		{
+			if (!filename) return;
+			
+			let content = '';
+			if (filename.endsWith('.ds')) content = DataSheetStream.writeXML(this.ds);
+			else if (filename.endsWith('.sdf')) content = new MDLSDFWriter(this.ds).write();
+			else
+			{
+				alert('Filename has unknown extension: ' + filename);
+				return;
+			}
+			
+			try {fs.writeFileSync(filename, content);}
+			catch (ex) {alert('Unable to write file: ' + filename);}
+		});
 	}
 }
 
