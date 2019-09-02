@@ -25,7 +25,6 @@ namespace WebMolKit /* BOF */ {
 	but interpretation is undefined. Explicit/implicit/actual hydrogens do not affect the final hash code.
 */
 
-
 export class DotHash
 {
 	public hash:string = null;

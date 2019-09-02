@@ -13,6 +13,7 @@
 ///<reference path='../../../WebMolKit/src/data/Molecule.ts'/>
 ///<reference path='../../../WebMolKit/src/data/MoleculeStream.ts'/>
 ///<reference path='../../../WebMolKit/src/data/MDLWriter.ts'/>
+///<reference path='../../../WebMolKit/src/data/ForeignMolecule.ts'/>
 ///<reference path='../../../WebMolKit/src/gfx/Rendering.ts'/>
 ///<reference path='../../../WebMolKit/src/gfx/ArrangeMolecule.ts'/>
 ///<reference path='../../../WebMolKit/src/gfx/DrawMolecule.ts'/>
@@ -114,6 +115,15 @@ export class EquivalenceResults
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
 				let molExpanded = mol.clone();
 				MolUtil.expandAbbrevs(molExpanded, false);
+				
+				// temporary bandaid: take the CSD-imported aromatic bond type and turn it into the "foreign" designation, which is used by dotpath
+				for (let b = 1; b <= molExpanded.numBonds; b++) if (molExpanded.bondExtra(b).indexOf('xAromatic') >= 0)
+				{
+					let list = molExpanded.bondTransient(b);
+					list.push(ForeignMoleculeExtra.BOND_AROMATIC);
+					molExpanded.setBondTransient(b, list);
+				}
+
 				eqr.molList.push(mol);
 				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
 				eqr.dhashList.push(new DotHash(new DotPath(molExpanded)).calculate());

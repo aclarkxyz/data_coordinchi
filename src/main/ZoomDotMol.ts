@@ -32,6 +32,11 @@ interface PathOutline
 	pblk:DotPathBlock;
 	px:number[];
 	py:number[];
+	//dx:number[];
+	//dy:number[];
+	ax:number[];
+	ay:number[];
+	ar:number[];
 }
 
 export class ZoomDotMol extends Dialog
@@ -88,14 +93,14 @@ export class ZoomDotMol extends Dialog
 		// draw all paths faintly
 		let spanBackdrop = $('<div></div>').appendTo(this.divOutline);
 		spanBackdrop.css({'position': 'absolute', 'left': '0px', 'top': '0px'});
-		$(this.renderOutlines(this.outlines, w, h, 0x808080, MetaVector.NOCOLOUR).createSVG()).appendTo(spanBackdrop);
+		$(this.renderOutlines(this.outlines, w, h, 0x808080, MetaVector.NOCOLOUR, false).createSVG()).appendTo(spanBackdrop);
 
 		// draw each path as an on/off toggle
 		for (let out of this.outlines)
 		{
 			let span = $('<div></div>').appendTo(this.divOutline);
 			span.css({'position': 'absolute', 'left': '0px', 'top': '0px', 'display': 'none'});
-			$(this.renderOutlines([out], w, h, 0x000000, 0xC0C0C0).createSVG()).appendTo(span);
+			$(this.renderOutlines([out], w, h, 0x000000, 0xC0C0C0, true).createSVG()).appendTo(span);
 			this.spanOutlines.push(span);
 		}
 
@@ -107,16 +112,48 @@ export class ZoomDotMol extends Dialog
 		this.divOutline.mouseenter((event:JQueryMouseEventObject) => this.hoverMouse(event));
 		this.divOutline.mouseleave((event:JQueryMouseEventObject) => this.hoverMouse(null));
 		this.divOutline.mousemove((event:JQueryMouseEventObject) => this.hoverMouse(event));
+
+		// now render as text
+
+		let table = $('<table></table>').appendTo(div);
+		let tr = $('<tr></tr>').appendTo(table);
+		tr.append('<th>Row</th>');
+		tr.append('<th>Atoms</th>');
+		tr.append('<th>Bonds</th>');
+		tr.append('<th>Electrons</th>');
+		tr.append('<th>Charge</th>');
+		let row = 0;
+		for (let pblk of this.dotpath.paths)
+		{
+			row++;
+			tr = $('<tr></tr>').appendTo(table);
+			let thRow = $('<th></th>').appendTo(tr);
+			let tdAtoms = $('<td></td>').appendTo(tr), tdBonds = $('<td></td>').appendTo(tr);
+			let tdElectrons = $('<td></td>').appendTo(tr), tdCharge = $('<td></td>').appendTo(tr);
+
+			let chg = 0;
+			for (let a of pblk.atoms) chg += this.mol.atomCharge(a);
+
+			thRow.text(row.toString());
+			tdAtoms.text(JSON.stringify(pblk.atoms));
+			tdBonds.text(JSON.stringify(pblk.bonds));
+			tdElectrons.text(pblk.numer + ' / ' + pblk.denom);
+			tdCharge.text(chg.toString());
+		}
+
 	}
 
 	// creates an outline 
 	private createOutline(pblk:DotPathBlock, layout:ArrangeMolecule):PathOutline
 	{
 		let x:number[] = [], y:number[] = [];
+		let scale = this.policy.data.pointScale;
+		let ax:number[] = [], ay:number[] = [], ar:number[] = [];
+
 		for (let a of pblk.atoms)
 		{
 			let pt = layout.getPoint(a - 1);
-			let rad = Math.max(0.5 * this.policy.data.pointScale, Math.max(pt.oval.rw, pt.oval.rh));
+			let rad = Math.max(0.5 * scale, Math.max(pt.oval.rw, pt.oval.rh));
 			const NPT = 36, THPT = TWOPI / NPT;
 			for (let n = 0; n < NPT; n++)
 			{
@@ -124,19 +161,57 @@ export class ZoomDotMol extends Dialog
 				x.push(pt.oval.cx + rad * Math.cos(th));
 				y.push(pt.oval.cy + rad * Math.sin(th));
 			}
-		}
-		let [px, py] = GeomUtil.convexHull(x, y, 2);
 
-		return {'pblk': pblk, 'px': px, 'py': py};
+			ax.push(pt.oval.cx);
+			ay.push(pt.oval.cy);
+			ar.push(rad);
+		}
+
+		for (let n = 1; n <= this.mol.numBonds; n++)
+		{
+			let bfr = this.mol.bondFrom(n), bto = this.mol.bondTo(n);
+			if (pblk.atoms.indexOf(bfr) < 0 || pblk.atoms.indexOf(bto) < 0) continue;
+			let pt1 = layout.getPoint(bfr - 1), pt2 = layout.getPoint(bto - 1);
+			let x1 = pt1.oval.cx, y1 = pt1.oval.cy, x2 = pt2.oval.cx, y2 = pt2.oval.cy;
+			let dx = x2 - x1, dy = y2 - y1, d = norm_xy(dx, dy), invD = invZ(d);
+			let ox = dy * invD * 0.3 * scale, oy = -dx * invD * 0.3 * scale;
+			let npWidth = Math.ceil(d / scale) + 1, npHeight = Math.ceil(norm_xy(ox, oy) / scale) + 1;
+			for (let n = 0; n <= npWidth; n++)
+			{
+				x.push(x1 - ox + dx * n / npWidth);
+				y.push(y1 - oy + dy * n / npWidth);
+				x.push(x1 + ox + dx * n / npWidth);
+				y.push(y1 + oy + dy * n / npWidth);
+			}
+			for (let n = 1; n < npHeight; n++)
+			{
+				x.push(x1 - ox + 2 * ox * n / npHeight);
+				y.push(y1 - oy + 2 * oy * n / npHeight);
+				x.push(x2 - ox + 2 * ox * n / npHeight);
+				y.push(y2 - oy + 2 * oy * n / npHeight);
+			}
+		}
+
+		let [px, py] = GeomUtil.outlinePolygon(x, y, scale);
+
+		return {'pblk': pblk, 'px': px, 'py': py, 'ax': ax, 'ay': ay, 'ar': ar};
 	}
 
-	// draw one or more outlines onto a vector canvas
-	private renderOutlines(outlines:PathOutline[], w:number, h:number, edgeCol:number, fillCol:number):MetaVector
+	// draw one or more outlines onto a vector canvas (to be activated as background)
+	private renderOutlines(outlines:PathOutline[], w:number, h:number, edgeCol:number, fillCol:number, withAtoms:boolean):MetaVector
 	{
 		let gfx = new MetaVector();
 		gfx.width = w;
 		gfx.height = h;
-		for (let out of outlines) gfx.drawPoly(out.px, out.py, edgeCol, 1, fillCol, false);
+		for (let out of outlines)
+		{
+			gfx.drawPoly(out.px, out.py, edgeCol, 1, fillCol, false);
+			//for (let n = 0; n < out.dx.length; n++) gfx.drawOval(out.dx[n], out.dy[n], 1, 1, MetaVector.NOCOLOUR, 0, 0xFF0000);
+
+			if (withAtoms) for (let n = 0; n < out.ar.length; n++) 
+				gfx.drawOval(out.ax[n], out.ay[n], out.ar[n], out.ar[n], MetaVector.NOCOLOUR, 0, 0xE0000000);
+		}
+
 		return gfx;
 	}
 
