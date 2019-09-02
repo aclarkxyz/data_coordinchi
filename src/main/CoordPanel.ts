@@ -36,7 +36,10 @@ export class CoordPanel extends WindowPanel
 	private divSummary:JQuery;
 	private divResults:JQuery;
 	private inputFile:JQuery;
-	private btnAnalyse:JQuery;
+	private chkFailOnly:JQuery;
+	private chkInChIFail:JQuery;
+	private inputStartAt:JQuery;
+	private btnRun:JQuery;
 	private btnCancel:JQuery;
 
 	// current task
@@ -160,19 +163,47 @@ export class CoordPanel extends WindowPanel
 		btnPick.css({'align-self': 'center'});
 		btnPick.click(() => this.pickFilename());
 
-		// !! TODO: action area for defining user molecules
-		// !! TODO: checkbox area (e.g. show clashes only)
+		// !! TODO: area for defining user molecules
+
+		// options
+
+		let divOptions = $('<div></div>').appendTo(divMain).css({'text-align': 'center', 'padding': '0.5em'});
+		let spanOptions = $('<div></div>').appendTo(divOptions).css({'text-align': 'left', 'display': 'inline-block'});
+
+		let makeCheck = (txt:string):JQuery =>
+		{
+			let div = $('<div></div>').appendTo(spanOptions);
+			let label = $('<label></label>').appendTo(div);
+			let chk = $('<input type="checkbox"></input>').appendTo(label);
+			label.append(txt);
+			return chk;
+		};
+		let makeInput = (txt:string, width:number):JQuery =>
+		{
+			let div = $('<div></div>').appendTo(spanOptions);
+			div.append(txt);
+			let input = $('<input type="text"></input>').appendTo(div);
+			input.css({'font': 'inherit', 'margin-left': '0.5em'});
+			input.attr('size', width.toString());
+			return input;
+		};
+
+		this.chkFailOnly = makeCheck('Show failure cases only');
+		this.chkInChIFail = makeCheck('Count standard InChI clashes as failures');
+		this.inputStartAt = makeInput('Start at row #', 10);
+
+		// action buttons
 
 		let divRun = $('<div></div>').appendTo(divMain);
 		divRun.css({'display': 'flex', 'justify-content': 'center'});
 		
-		this.btnAnalyse = $('<button class="wmk-button wmk-button-primary">Run</button>').appendTo(divRun).css({'margin': '0.5em'});
-		this.btnAnalyse.click(() => this.runAnalysis());
+		this.btnRun = $('<button class="wmk-button wmk-button-primary">Run</button>').appendTo(divRun).css({'margin': '0.5em'});
+		this.btnRun.click(() => this.runAnalysis());
 		
 		this.btnCancel = $('<button class="wmk-button wmk-button-default">Cancel</button>').appendTo(divRun).css({'margin': '0.5em'});
 		this.btnCancel.click(() => this.cancelAnalysis());
 
-		this.btnAnalyse.prop('disabled', false);
+		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 
 		this.inputFile.focus();
@@ -206,7 +237,7 @@ export class CoordPanel extends WindowPanel
 		areaSummary.text('Loading...');
 		let areaResults = $('<div></div>').appendTo(this.divResults).css('padding', '0.5em');
 
-		this.btnAnalyse.prop('disabled', true);
+		this.btnRun.prop('disabled', true);
 		this.btnCancel.prop('disabled', false);
 
 		setTimeout(() =>
@@ -214,8 +245,14 @@ export class CoordPanel extends WindowPanel
 			this.loadFile();
 			areaSummary.empty();
 			if (!this.ds) return;
-			this.task = new EquivalenceResults(this.ds, () => this.finishedResults());
-
+			let opt:EquivalenceResultsOptions =
+			{
+				'failOnly': this.chkFailOnly.prop('checked'),
+				'inchiFail': this.chkInChIFail.prop('checked'),
+				'startAt': parseInt(this.inputStartAt.val())
+			};
+			this.task = new EquivalenceResults(this.ds, opt, () => this.finishedResults());
+	
 			this.task.render(areaSummary, areaResults);
 			// TODO: fold AnalyseMolecule features into this 
 		}, 1);
@@ -225,7 +262,7 @@ export class CoordPanel extends WindowPanel
 	{
 		if (this.task) this.task.cancel();
 		this.task = null;
-		this.btnAnalyse.prop('disabled', false);
+		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 	}
 
@@ -247,7 +284,7 @@ export class CoordPanel extends WindowPanel
 	// task is done
 	private finishedResults():void
 	{
-		this.btnAnalyse.prop('disabled', false);
+		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 
 		let paraSave = $('<p></p>').appendTo(this.divSummary);

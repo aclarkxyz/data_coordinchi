@@ -34,8 +34,16 @@ namespace WebMolKit /* BOF */ {
 interface EquivalenceRow
 {
 	molList:Molecule[];
+	molExpanded:Molecule[];
 	inchiList:string[];
 	dhashList:string[];
+}
+
+export interface EquivalenceResultsOptions
+{
+	failOnly:boolean; // only render rows that have a failure case of some kind
+	inchiFail:boolean; // record failure when standard InChI fails to achieve desired effect (which happens a lot)
+	startAt:number; // first row (1-based)
 }
 
 export class EquivalenceResults
@@ -64,7 +72,7 @@ export class EquivalenceResults
 
 	// ------------ public methods ------------
 
-	constructor(private ds:DataSheet, private callbackDone:() => void)
+	constructor(private ds:DataSheet, private opt:EquivalenceResultsOptions, private callbackDone:() => void)
 	{
 	}
 
@@ -109,7 +117,7 @@ export class EquivalenceResults
 		}
 		for (let n = 0; n < this.ds.numRows; n++)
 		{
-			let eqr:EquivalenceRow = {'molList': [], 'inchiList': [], 'dhashList': []};
+			let eqr:EquivalenceRow = {'molList': [], 'molExpanded': [], 'inchiList': [], 'dhashList': []};
 			for (let i = 0; i < this.colMol.length; i++) if (this.ds.notNull(n, this.colMol[i]))
 			{
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
@@ -125,6 +133,7 @@ export class EquivalenceResults
 				}
 
 				eqr.molList.push(mol);
+				eqr.molExpanded.push(molExpanded);
 				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
 				eqr.dhashList.push(new DotHash(new DotPath(molExpanded)).calculate());
 			}
@@ -133,7 +142,10 @@ export class EquivalenceResults
 
 		this.tableContent = $('<table></table>').appendTo(this.divContent);
 
-		this.processRow(0);
+		let firstRow = this.opt.startAt - 1;
+		if (!(firstRow >= 0)) firstRow = 0;
+
+		this.processRow(firstRow);
 	}
 
 	private processRow(row:number):void
@@ -166,15 +178,15 @@ export class EquivalenceResults
 		{
 			let mol = eqr.molList[n], inchi = eqr.inchiList[n], dhash = eqr.dhashList[n]
 
-			// optionally take this opportunity to make sure that permuted versions are the same
-			//this.investigateHashes(mol, dhash);
-
 			let [card, spanMol] = this.generateCard(mol, inchi, dhash, 300);
 			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});
 			flex.append(card);
 			spanMol.mouseenter(() => spanMol.css({'background-color': '#C0C0C0', 'border-radius': '5px'}));
 			spanMol.mouseleave(() => spanMol.css('background-color', 'transparent'));
 			spanMol.click(() => new ZoomDotMol(mol).open());
+
+			// drill down on the hash codes in a bit more detail (sanity check)
+			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), eqr.molExpanded[n], dhash);
 		}
 
 		// compare InChI's within same row: they are expected to be the same
@@ -370,10 +382,15 @@ export class EquivalenceResults
 		return true;
 	}
 
-	// try some variations on dotpath-hash generation
-	private investigateHashes(mol:Molecule, dhash:string)
+	// try some variations on dotpath-hash generation; failure results in a hard crash, since this is a sanity check for the underlying algorithm, not a test of how
+	// well the high level chemistry is working out
+	private investigateHashes(note:string, mol:Molecule, dhash:string)
 	{
 		if (mol.numAtoms <= 1) return;
+
+		mol = mol.clone();
+		mol.keepTransient = true; // have some that we want to keep
+
 		for (let count = 20, n = 0; count > 0; count--, n++)
 		{
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
@@ -381,6 +398,7 @@ export class EquivalenceResults
 			let phash = new DotHash(new DotPath(mol)).calculate();
 			if (dhash != phash) 
 			{
+				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
 				console.log('ORIGINAL:' + dhash);
 				console.log('PERMUTED:' + phash);
 				throw 'Dot hashes differ';
