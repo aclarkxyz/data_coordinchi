@@ -123,7 +123,7 @@ export class EquivalenceResults
 		if (this.callInChI.isAvailable) for (let r = 0; r < this.ds.numRows; r++) for (let n = 0; n < this.colMol.length; n++)
 		{
 			let c1 = this.colMol[n], c2 = this.colInChI[n];
-			if (this.ds.notNull(r, c1)) this.rosterInChI.push([r, c1, c2]);
+			if (this.ds.notNull(r, c1) && this.ds.isNull(r, c2)) this.rosterInChI.push([r, c1, c2]);
 		}
 
 		setTimeout(() => this.calcNextInChI(), 0);
