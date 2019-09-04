@@ -175,7 +175,7 @@ export class ZoomDotMol extends Dialog
 			let x1 = pt1.oval.cx, y1 = pt1.oval.cy, x2 = pt2.oval.cx, y2 = pt2.oval.cy;
 			let dx = x2 - x1, dy = y2 - y1, d = norm_xy(dx, dy), invD = invZ(d);
 			let ox = dy * invD * 0.3 * scale, oy = -dx * invD * 0.3 * scale;
-			let npWidth = Math.ceil(d / scale) + 1, npHeight = Math.ceil(norm_xy(ox, oy) / scale) + 1;
+			let npWidth = Math.ceil(2 * d / scale) + 1, npHeight = Math.ceil(2 * norm_xy(ox, oy) / scale) + 1;
 			for (let n = 0; n <= npWidth; n++)
 			{
 				x.push(x1 - ox + dx * n / npWidth);
@@ -192,7 +192,9 @@ export class ZoomDotMol extends Dialog
 			}
 		}
 
-		let [px, py] = GeomUtil.outlinePolygon(x, y, scale);
+		//this.removeDegenerates(x, y);
+
+		let [px, py] = GeomUtil.outlinePolygon(x, y, 0.5 * scale);
 
 		return {'pblk': pblk, 'px': px, 'py': py, 'ax': ax, 'ay': ay, 'ar': ar};
 	}
@@ -230,6 +232,30 @@ export class ZoomDotMol extends Dialog
 			}
 		}
 		for (let n = 0; n < this.outlines.length; n++) this.spanOutlines[n].css('display', n == which ? 'inline' : 'none');
+	}
+
+	// clip out points that are too close to each other for comfort
+	private removeDegenerates(x:number[], y:number[]):void
+	{
+		// it's O(N^2), could be improved a lot
+		const sz = x.length;
+		const threshSq = sqr(2);
+		let mask = Vec.booleanArray(true, sz);
+		for (let i = 0; i < sz - 1; i++) if (mask[i])
+			for (let j = i + 1; j < sz; j++) if (mask[j])
+		{
+			let dsq = norm2_xy(x[i] - x[j], y[i] - y[j]);
+			if (dsq < threshSq) mask[j] = false;
+		}
+		//console.log('MASK:'+mask);		
+		for (let n = sz - 1; n >= 0; n--) if (!mask[n])
+		{
+			x.splice(n, 1);
+			y.splice(n, 1);
+		}
+		/*let z = '';		
+		for (let n = 0; n < x.length; n++) z += ', {' + x[n].toFixed(2) + 'f,' + y[n].toFixed(2) + 'f}';
+		console.log('PP:'+z);*/
 	}
 }
 

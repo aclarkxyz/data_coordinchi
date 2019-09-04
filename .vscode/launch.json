@@ -16,6 +16,7 @@
 			"args": 
 			[
 				"data/equivalences.ds",
+				//"/tmp/fnord.ds",
 				"--inchi", "${env:HOME}/bin/inchi-1"
 			],
 			"protocol": "inspector"
