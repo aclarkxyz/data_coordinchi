@@ -102,3 +102,129 @@ The only example of a use case that has been deliberately left out of the traini
 Additional real world examples should be added to this set as they become available.
 
 ## Installation
+
+This **Coordination InChI** proof of concept runs under the [Electron](https://electronjs.org) framework, which is a stripped-down version of Google Chrome combined with [NodeJS](https://nodejs.org/en) which together provide a framework for creating desktop applications using JavaScript/HTML. Using this combination of technologies is not without its drawbacks and complexities, but it is the closest thing to a truly cross platform environment: the deliverable runs equally well on Windows/Linux/Mac with negligible customisation. With a little foresight, only a small portion of the codebase has to be tied to desktop environments (e.g. command line arguments, handling menus, clipboard, direct file access), which means that adaptation to running on a web browser or other encapsulated environment (e.g. mobile) can be done by only swapping out a few modules.
+
+The down side is that deploying to the _Electron_ platform requires a bit more effort. The codebase is also written in [TypeScript](https://www.typescriptlang.org) which is a superset of _JavaScript_ that provides compile-time typing and proper datastructures, which makes maintaining a non-trivial codebase much more practical.
+
+The following steps are necessary to compile & run the **Coordination InChI** project on a desktop computer. The instructions assume some familiarity with the command line prompt, which will be `bash`/`tcsh` for Linux/Mac, and the archaic `cmd.exe` for Windows.
+
+### 1. NodeJS
+
+`NodeJS` is a command line execution tool for running JavaScript without a graphical user interface, and `npm` is its corresponding package manager which makes it straightforward to install numerous open source utilities. These must be installed first.
+
+Installing `NodeJS` and `npm` on Windows is typically [done graphically](https://treehouse.github.io/installation-guides/windows/node-windows.html) in one step.
+
+Installation on Linux is usually best done through the distribution's package manager system, and can be accomplished with a [single command](https://nodejs.org/en/download/package-manager).
+
+Installation on macOS is a bit more fun: there are several options, but the preferred one is to do it via the _homebrew_ framework. [This article](https://treehouse.github.io/installation-guides/mac/node-mac.html) describes the process of installing homebrew then using it to setup `NodesJS` and `npm`. Get settled in for some downloading, because it is in turn predicated on having the _Xcode_ command line tools, which are free-but-large.
+
+Before proceeding, fire up the command line and enter:
+
+```
+$ npm
+```
+
+The result should be help text describing how to use the package manager, which means that the installation is successful. If you have an pre-existing version of npm, it might be a good idea to ensure that the latest version is installed:
+
+```
+$ sudo npm -g i npm
+```
+
+### 2. Electron
+
+Once `npm` is running properly, installed `Electron` is simple. On Linux/Mac command line, install it globally using `sudo`:
+
+```
+$ sudo npm -g i electron
+```
+
+or on Windows:
+
+```
+$ npm -g i electron
+```
+
+The `npm` package manager generally does a good job of ensuring that the path matching works for subsequent command line use, although you may need to issue a `rehash` command on some Unix shells. To make sure it has been installed:
+
+```
+$ electron --version
+```
+
+### 3. TypeScript
+
+The `TypeScript` compiler is also deployed as an `npm` package and can be installed with:
+
+```
+$ sudo npm -g i typescript
+```
+
+where the `sudo` part can be omitted for Windows. To ensure success:
+
+```
+$ tsc --version
+```
+
+### 4. Git
+
+Accessing content stored on GitHub can be done several different ways, the canonical method being to use the command line `git` tool. The installation method [varies per platform](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git), and is typically done via a package manager (Linux) or as part of Xcode (Mac) or installed via a graphical installer (Windows). There are other options, such as [GitHub's client](https://desktop.github.com/), or alternatively going to the corresponding repository website and downloading the latest content as a packaged ZIP file.
+
+### 5. CoordInChI
+
+Once the `Electron` and `TypeScript` prerequisites are in place, clone or otherwise download two GitHub repositories: one is the [CoordInChI](https://github.com/aclarkxyz/data_coordinchi) project, and the other is its dependency [WebMolKit](https://github.com/aclarkxyz/web_molkit). These should be installed in parallel at the same directory level, due to the fact that the former includes relative path links to the latter. So for example:
+
+```
+~/work/inchi
+    --> CoordInChI
+	--> WebMolKit
+```
+
+The packages can either be initialised using the git connections, or by unpacking the site's zip file. The command line invocations for Linux/Mac would be:
+
+```
+$ cd CoordInChI
+$ git init
+$ git remote add origin git@github.com:aclarkxyz/data_coordinchi.git
+$ git pull origin master
+$ cd ../WebMolKit
+$ git init
+$ git remote add origin git@github.com:aclarkxyz/web_molkit.git
+$ git pull origin master
+```
+
+Verify that both of the directories (`CoordInChI` and `WebMolKit`) are populated with relevant content before proceeding.
+
+### 6. Compile and Run
+
+The next step is to compile the _TypeScript_ inputs into a composite _JavaScript_ file. If everything is setup, this is straightforward:
+
+```
+$ cd CoordInChI
+$ tsc
+```
+
+As long as the `CoordInChI` directory is current, and `tsc` (_TypeScript_) is installed, the compilation will proceed to create the file `app/coordinchi.js`.
+
+Launching the compiled endpoint involves invoking the `electron` command. The minimal launch state can be achieved with:
+
+```
+$ electron app
+```
+
+The usual subject of the project is the validation file `data/equivalences.ds`, which can be indicated as the starting point with:
+
+```
+$ electron app data/equivalences.ds
+```
+
+For some of the functionality, it is useful to know the location of the command line InChI generator tool. This has been pre-run for the main validation file, so its availability is not necessarily essential. This can be specified with an additional command line argument, e.g.
+
+```
+$ electron app data/equivalences.ds --inchi ~/bin/inchi-1
+```
+
+### 7. Visual Studio Code
+
+This last step is only important to anyone who wants to contribute to development of the project. The [Visual Studio Code](https://code.visualstudio.com/) IDE is free and lightweight (not to be confused with _Visual Studio_) and is the preferred method for editing code. It also allows the **Coordination InChI** tool to be launched with a couple of keystrokes.
+
+
