@@ -176,7 +176,7 @@ export class EquivalenceResults
 				eqr.molList.push(mol);
 				eqr.molExpanded.push(molExpanded);
 				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
-				eqr.dhashList.push(new DotHash(new DotPath(molExpanded)).calculate());
+				eqr.dhashList.push(null);
 			}
 			this.rows.push(eqr);
 		}
@@ -217,7 +217,9 @@ export class EquivalenceResults
 		let nmol = eqr.molList.length;
 		for (let n = 0; n < nmol; n++)
 		{
-			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n], dhash = eqr.dhashList[n]
+			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n];
+			let dhash = new DotHash(new DotPath(molExpanded)).calculate();
+			eqr.dhashList[n] = dhash;
 
 			let [card, spanMol] = this.generateCard(mol, molExpanded, inchi, dhash, 300);
 			card.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #808080'});

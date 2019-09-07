@@ -97,9 +97,9 @@ export class CoordPanel extends WindowPanel
 		else if (cmd == 'redo') this.sketcher.performRedo();
 		else if (cmd == 'cut') this.actionCopy(true);
 		else*/ if (cmd == 'copy') document.execCommand('copy');
-		/*else if (cmd == 'copyMDL') this.actionCopyMDL();
+		/*else if (cmd == 'copyMDL') this.actionCopyMDL();*/
 		else if (cmd == 'paste') this.actionPaste();
-		else if (cmd == 'delete') new MoleculeActivity(this.sketcher, ActivityType.Delete, {}).execute();
+		/*else if (cmd == 'delete') new MoleculeActivity(this.sketcher, ActivityType.Delete, {}).execute();
 		else if (cmd == 'selectAll') new MoleculeActivity(this.sketcher, ActivityType.SelectAll, {}).execute();
 		else if (cmd == 'zoomFull') this.sketcher.autoScale();
 		else if (cmd == 'zoomIn') this.sketcher.zoom(1.25);
@@ -288,7 +288,7 @@ export class CoordPanel extends WindowPanel
 	{
 		if (!this.custom)
 		{
-			this.custom = new CustomStructures(this.proxyClip);
+			this.custom = new CustomStructures(this.callInChI, this.proxyClip);
 			this.custom.render(this.divCustom);
 		}
 		this.custom.sketchNew();
@@ -352,6 +352,11 @@ export class CoordPanel extends WindowPanel
 			try {fs.writeFileSync(filename, content);}
 			catch (ex) {alert('Unable to write file: ' + filename);}
 		});
+	}
+
+	private actionPaste():void
+	{
+		if (this.proxyClip.pasteEvent) this.proxyClip.pasteEvent(this.proxyClip);
 	}
 }
 

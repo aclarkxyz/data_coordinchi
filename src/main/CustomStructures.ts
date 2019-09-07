@@ -21,6 +21,7 @@
 ///<reference path='../decl/node.d.ts'/>
 ///<reference path='../decl/electron.d.ts'/>
 ///<reference path='../data/DotHash.ts'/>
+///<reference path='../data/CallInChI.ts'/>
 ///<reference path='ZoomDotMol.ts'/>
 ///<reference path='MoleculeCard.ts'/>
 
@@ -44,7 +45,7 @@ export class CustomStructures
 
 	// ------------ public methods ------------
 
-	constructor(private proxyClip:ClipboardProxy)
+	constructor(private callInChI:CallInChI, private proxyClip:ClipboardProxy)
 	{
 		this.policy.data.pointScale = 15;
 	}
@@ -70,7 +71,11 @@ export class CustomStructures
 	{
 		let molExpanded = mol.clone();
 		MolUtil.expandAbbrevs(molExpanded, true);
-		let inchi:string = null, dhash:string = null; // !!
+
+		let inchi:string = null;
+		if (this.callInChI.isAvailable) inchi = this.callInChI.calculate(molExpanded).inchi;
+
+		let dhash = new DotHash(new DotPath(molExpanded)).calculate();
 
 		let card = new MoleculeCard(mol, molExpanded, inchi, dhash, 300, this.policy);
 		card.generate();
@@ -81,9 +86,10 @@ export class CustomStructures
 		card.spanMol.mouseleave(() => card.spanMol.css('background-color', 'transparent'));
 		card.spanMol.click(() => new ZoomDotMol(mol).open());
 
+		card.dom.contextmenu(() => this.contextMenu(card));
+
 		this.structures.push({'mol': mol, 'card': card});
 		this.updateOutline();
-
 	}
 
 	// ------------ private methods ------------
@@ -98,6 +104,45 @@ export class CustomStructures
 		{
 			this.divMain.css({'padding': '0', 'border': '0'});
 		}
+	}
+
+	private contextMenu(card:MoleculeCard):void
+	{
+		let electron = require('electron');
+		let menu = new electron.remote.Menu();
+
+		menu.append(new electron.remote.MenuItem({'label': 'Copy', 'click': () => this.copyNative(card)}));
+		menu.append(new electron.remote.MenuItem({'label': 'Copy Molfile V2000', 'click': () => this.copyMDLV2000(card)}));
+		//menu.append(new electron.remote.MenuItem({'label': 'Copy Molfile V3000', 'click': () => this.copyMDLV3000()}));
+		menu.append(new electron.remote.MenuItem({'label': 'Remove', 'click': () => this.removeStructure(card)}));
+
+		menu.popup(electron.remote.getCurrentWindow());
+	}
+
+	private copyNative(card:MoleculeCard):void
+	{
+		let str = MoleculeStream.writeNative(card.mol);
+		let clipboard = require('electron').clipboard;
+		clipboard.writeText(str);
+	}
+
+	private copyMDLV2000(card:MoleculeCard):void
+	{
+		// TODO: pay more attention to how the special fields are written, and at some point S-groups for abbreviations
+		let str = MoleculeStream.writeMDLMOL(card.molExpanded);
+		let clipboard = require('electron').clipboard;
+		clipboard.writeText(str);
+	}
+
+	private removeStructure(card:MoleculeCard):void
+	{
+		for (let n = 0; n < this.structures.length; n++) if (this.structures[n].card === card)
+		{
+			this.structures[n].card.dom.remove();
+			this.structures.splice(n, 1);
+			break;
+		}
+		this.updateOutline();
 	}
 }
 
