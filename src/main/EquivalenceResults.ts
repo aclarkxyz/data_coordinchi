@@ -23,6 +23,7 @@
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
 ///<reference path='../data/CallInChI.ts'/>
+///<reference path='MoleculeCard.ts'/>
 ///<reference path='ZoomDotMol.ts'/>
 
 namespace WebMolKit /* BOF */ {
@@ -70,8 +71,6 @@ export class EquivalenceResults
 	private rows:EquivalenceRow[] = [];
 
 	protected policy:RenderPolicy;
-	protected effects:RenderEffects;
-	protected measure:ArrangeMeasurement;
 
 	// ------------ public methods ------------
 
@@ -86,8 +85,6 @@ export class EquivalenceResults
 
 		this.policy = RenderPolicy.defaultColourOnWhite();
 		this.policy.data.pointScale = 15;
-		this.effects = new RenderEffects();
-		this.measure = new OutlineMeasurement(0, 0, this.policy.data.pointScale);		
 
 		this.startAnalysis();
 	}
@@ -309,128 +306,6 @@ export class EquivalenceResults
 		setTimeout(() => this.processRow(row + 1), 1);
 	}
 
-	// creates a rectangular DOM block that shows a molecule & its InChI, if available
-	private generateCard(mol:Molecule, molExpanded:Molecule, inchi:string, dhash:string, dimsz:number):[JQuery, JQuery]
-	{
-		let div = $('<div></div>');
-		div.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
-
-		let divMol = $('<div></div>').appendTo(div).css({'text-align': 'center'});
-		let layout = new ArrangeMolecule(mol, this.measure, this.policy, this.effects);
-		layout.arrange();
-		layout.squeezeInto(0, 0, dimsz, dimsz);
-		let gfx = new MetaVector();
-		new DrawMolecule(layout, gfx).draw();
-		gfx.normalise();
-		let spanMol = $('<span></span>').appendTo(divMol);
-		spanMol.css('display', 'inline-block');
-		$(gfx.createSVG()).appendTo(spanMol);
-
-		let divFormula = $('<div></div>').appendTo(div).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
-		divFormula.html(MolUtil.molecularFormula(molExpanded, ['<sub>', '</sub>', '<sup>', '</sup>']));
-		let chg = 0;
-		for (let n = 1; n <= molExpanded.numAtoms; n++) chg += molExpanded.atomCharge(n);
-		divFormula.append(' [a=' + molExpanded.numAtoms + ',b=' + molExpanded.numBonds + ',c=' + chg + ']');
-
-		if (inchi)
-		{
-			let maxWidth = Math.max(dimsz, gfx.boundHighX() - gfx.boundLowX());
-			let divInChI = $('<div></div>').appendTo(div).css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
-
-			let bits = /^(InChI=1S?\/)([\w\d\.]+)(\/.*)$/.exec(inchi);
-			if (!bits)
-			{
-				let span = $('<span></span>').appendTo(divInChI);
-				span.css({'color': 'white', 'background-color': '#4E1A09'});
-				span.text(inchi);
-			}
-			else if (!this.sameFormula(bits[2], mol))
-			{
-				divInChI.append(escapeHTML(bits[1]));
-				let span = $('<span></span>').appendTo(divInChI);
-				span.css({/*'color': 'white', */'background-color': '#E0E000'});
-				span.text(bits[2]);
-				divInChI.append(escapeHTML(bits[3]));
-			}
-			else // all good
-			{
-				divInChI.text(inchi);
-			}
-		}
-		if (dhash)
-		{
-			let maxWidth = Math.max(dimsz, gfx.boundHighX() - gfx.boundLowX());
-			let divHash = $('<div></div>').appendTo(div);
-			divHash.css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word', 'margin-top': '0.1em'});
-			divHash.css({'border-top': '1px solid #C0C0C0'});
-			divHash.text(dhash);
-		}
-
-		return [div, spanMol];
-	}
-
-	// returns true if the InChI-derived formula is the same as the molecule's formula
-	private sameFormula(formula:string, mol:Molecule):boolean
-	{
-		let makeMap = (str:string):{[id:string] : number} =>
-		{
-			let map:{[id:string] : number} = {};
-			let mul = 1;
-			while (str)
-			{			
-				let grp = /^[\.\s]+(.*)$/.exec(str);
-				if (grp) 
-				{
-					str = grp[1];
-					mul = 1;
-					continue;
-				}
-				grp = /^([A-Z][a-z]?)(\d+)(.*)/.exec(str);
-				if (grp)
-				{
-					let el = grp[1], num = parseInt(grp[2]) * mul;
-					map[el] = (map[el] || 0) + num;
-					str = grp[3];
-					continue;
-				}
-				grp = /^([A-Z][a-z]?)(.*)/.exec(str);
-				if (grp)
-				{
-					let el = grp[1], num = 1 * mul;
-					map[el] = (map[el] || 0) + num;
-					str = grp[2];
-					continue;
-				}
-				grp = /^(\d+)(.*)/.exec(str);
-				if (grp)
-				{
-					mul = parseInt(grp[1]);
-					str = grp[2];
-					continue;
-				}
-				throw 'Unparseable formula: ' + str;
-			}
-			return map;
-		};
-
-		let map1 = makeMap(formula);
-		let map2 = makeMap(MolUtil.molecularFormula(mol));
-		if (map1 == null || map2 == null) return false;
-		if (Object.keys(map1).length != Object.keys(map2).length) return false;
-		if (map1.size != map2.size) return false;
-		for (let el in map1) if (map1[el] != map2[el])
-		{
-			/*console.log('M1:'+formula);
-			console.log('    '+JSON.stringify(map1));
-			console.log('M2:'+MolUtil.molecularFormula(mol));
-			console.log('    '+JSON.stringify(map2));
-			throw "fnord";*/
-			return false;
-		}
-
-		return true;
-	}
-
 	// try some variations on dotpath-hash generation; failure results in a hard crash, since this is a sanity check for the underlying algorithm, not a test of how
 	// well the high level chemistry is working out
 	private investigateHashes(note:string, mol:Molecule, dhash:string)
@@ -453,6 +328,14 @@ export class EquivalenceResults
 				throw 'Dot hashes differ';
 			}
 		}
+	}
+
+	// shorthand for creating a card object
+	private generateCard(mol:Molecule, molExpanded:Molecule, inchi:string, dhash:string, dimsz:number):[JQuery, JQuery]
+	{
+		let card = new MoleculeCard(mol, molExpanded, inchi, dhash, dimsz, this.policy);
+		card.generate();
+		return [card.dom, card.spanMol];
 	}
 
 	// make sure panel is current

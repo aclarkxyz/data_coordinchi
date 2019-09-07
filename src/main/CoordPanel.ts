@@ -21,6 +21,7 @@
 ///<reference path='WindowPanel.ts'/>
 ///<reference path='AnalyzeResults.ts'/>
 ///<reference path='EquivalenceResults.ts'/>
+///<reference path='CustomStructures.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -35,6 +36,7 @@ export class CoordPanel extends WindowPanel
 
 	private divHeader:JQuery;
 	private divSetup:JQuery;
+	private divCustom:JQuery;
 	private divSummary:JQuery;
 	private divResults:JQuery;
 	private inputFile:JQuery;
@@ -43,11 +45,13 @@ export class CoordPanel extends WindowPanel
 	private inputStartAt:JQuery;
 	private btnRun:JQuery;
 	private btnCancel:JQuery;
+	private btnDraw:JQuery;
 
 	// current task
 	private filename:string = null;
 	private ds:DataSheet = null;
 	private task:EquivalenceResults = null;
+	private custom:CustomStructures = null;
 
 	// ------------ public methods ------------
 
@@ -112,6 +116,7 @@ export class CoordPanel extends WindowPanel
 
 		this.divHeader = $('<div></div>').appendTo(divMain);
 		this.divSetup = $('<div></div>').appendTo(divMain);
+		this.divCustom = $('<div></div>').appendTo(divMain);
 		this.divSummary = $('<div></div>').appendTo(divMain);
 		this.divResults = $('<div></div>').appendTo(divMain);
 
@@ -208,8 +213,12 @@ export class CoordPanel extends WindowPanel
 		this.btnCancel = $('<button class="wmk-button wmk-button-default">Cancel</button>').appendTo(divRun).css({'margin': '0.5em'});
 		this.btnCancel.click(() => this.cancelAnalysis());
 
+		this.btnDraw = $('<button class="wmk-button wmk-button-primary">Draw</button>').appendTo(divRun).css({'margin': '0.5em 0.5em 0.5em 1.5em'});
+		this.btnDraw.click(() => this.drawStructure());
+
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
+		this.btnDraw.prop('disabled', false);
 
 		this.inputFile.focus();
 	}
@@ -244,6 +253,7 @@ export class CoordPanel extends WindowPanel
 
 		this.btnRun.prop('disabled', true);
 		this.btnCancel.prop('disabled', false);
+		this.btnDraw.prop('disabled', true);
 
 		setTimeout(() =>
 		{
@@ -270,6 +280,18 @@ export class CoordPanel extends WindowPanel
 		this.task = null;
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
+		this.btnDraw.prop('disabled', false);
+	}
+
+	// give the user a chance to draw a molecule
+	private drawStructure():void
+	{
+		if (!this.custom)
+		{
+			this.custom = new CustomStructures(this.proxyClip);
+			this.custom.render(this.divCustom);
+		}
+		this.custom.sketchNew();
 	}
 
 	// obtains the file contents, and sets this.ds if successful
