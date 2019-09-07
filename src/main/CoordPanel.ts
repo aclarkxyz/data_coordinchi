@@ -122,26 +122,6 @@ export class CoordPanel extends WindowPanel
 
 		this.buildHeader();
 		this.buildSetup();
-
-// !!
-/*		let mol = Molecule.fromString(
-			'SketchEl!(6,6)\n' +
-			'Pt=0.0000,0.0000;-1,0,i0\n' +
-			'Cl=1.5000,0.0000;0,0,i0\n' +
-			'Cl=0.0000,1.5000;0,0,i0\n' +
-			'Cl=0.0000,-1.5000;0,0,i0\n' +
-			'C=-1.5990,0.7500;0,0,i2\n' +
-			'C=-1.5990,-0.7500;0,0,i2\n' +
-			'1-2=1,0\n' +
-			'1-3=1,0\n' +
-			'1-4=1,0\n' +
-			'1-5=0,0\n' +
-			'5-6=2,0\n' +
-			'6-1=0,0\n' +
-			'!End');	
-		let dh = new DotHash(new DotPath(mol));
-		console.log('DOTHASH:'+dh.calculate());	
-*/
 	}
 
 	private buildHeader():void
@@ -172,8 +152,6 @@ export class CoordPanel extends WindowPanel
 		let btnPick = $('<button class="wmk-button wmk-button-default">Pick</button>').appendTo(divInput);
 		btnPick.css({'align-self': 'center'});
 		btnPick.click(() => this.pickFilename());
-
-		// !! TODO: area for defining user molecules
 
 		// options
 
@@ -281,6 +259,9 @@ export class CoordPanel extends WindowPanel
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 		this.btnDraw.prop('disabled', false);
+
+// !!! fnord
+this.finishedResults();		
 	}
 
 	// give the user a chance to draw a molecule
@@ -317,12 +298,16 @@ export class CoordPanel extends WindowPanel
 
 		let paraSave = $('<p></p>').appendTo(this.divSummary);
 		paraSave.css({'text-align': 'center'});
-		let btnSave = $('<button class="wmk-button wmk-button-primary">Save</button>').appendTo(paraSave);
-		btnSave.click(() => this.saveFile());
+		
+		let btnSaveData = $('<button class="wmk-button wmk-button-primary">Save Data</button>').appendTo(paraSave);
+		btnSaveData.click(() => this.saveDataFile());
+		paraSave.append(' ');
+		let btnSaveView = $('<button class="wmk-button wmk-button-default">Save HTML</button>').appendTo(paraSave);
+		btnSaveView.click(() => this.saveHTMLFile());
 	}
 
 	// write the current file back to disk
-	private saveFile():void
+	private saveDataFile():void
 	{
 		const electron = require('electron'), fs = require('fs');
 		const dialog = electron.remote.dialog; 
@@ -350,6 +335,40 @@ export class CoordPanel extends WindowPanel
 			}
 			
 			try {fs.writeFileSync(filename, content);}
+			catch (ex) {alert('Unable to write file: ' + filename);}
+		});
+	}
+
+	// save an HTML representation of the results
+	private saveHTMLFile():void
+	{
+		const STYLE = 
+			'<style type="text/css">\n' +
+			'body\n' +
+			'{\n' +
+			'  color: #000000;\n' +
+			'  font-family: sans-serif;\n' +
+			'}\n' +
+			'</style>';
+		let head = '<title>Coordination InChI Validation</title>\n' + STYLE + '\n';
+		let body = this.divResults[0].outerHTML;
+		let html = '<html>\n<head>' + head + '</head>\n<body>\n' + body + '\n</body>\n</html>';
+
+		const electron = require('electron'), fs = require('fs');
+		const dialog = electron.remote.dialog; 
+		let params:any =
+		{
+			'title': 'Save Results as HTML',
+			'filters':
+			[
+				{'name': 'HTML', 'extensions': ['html']},
+			]
+		};
+		dialog.showSaveDialog(params, (filename:string):void =>
+		{
+			if (!filename) return;
+			
+			try {fs.writeFileSync(filename, html);}
 			catch (ex) {alert('Unable to write file: ' + filename);}
 		});
 	}
