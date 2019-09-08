@@ -54,6 +54,12 @@ Within any given row, all of the structures are asserted to _refer to the same c
 
 There are ~500 rows at this time, about 75% of which originated from the _Cambridge Structural Database_. In these majority of cases, the original bond assignments and explicit hydrogen counts were preserved from the original database representation. Then alongside the original diagram is a manually adapted version which uses a smaller dialect of bond orders, consisting of 0, 1, 2 or 3, and constructed in a way that maximises idealised notions of valence and oxidation state, places formal charges on plausible atom centres, indicates pi-electron pathways, and infers the correct number of implicit hydrogens automatically whenever possible. In some cases higher order bond artifacts are added for aesthetic purposes, and inline abbreviations are used for clarity in the case of crowded molecules. For the ~25% or so that originated from sources other than CSD, care was taken to represent structures in multiple different ways, each of which is valid according to some rationale (e.g. taking a suboptimal representation from an external source and making the minimum number of corrections needed). In some cases molecules were drawn differently on purpose, and placed on different rows (e.g. drawing salt forms and connected forms, and noting that they are not expected to produce the same identifier).
 
+### File formats
+
+The validation materials are stored in files with the suffix `.ds` which is a DataSheet XML format for cheminformatics data which is roughly equivalent to the MDL SDfile, but without the very long list of inadequacies. The baseline format is straightforward, and is [described here](http://molmatinf.com/fmtdatasheet.html): it is a tabular format, in which columns are described in the header section, and each one is typed. One of the types is _Molecule_, for which the content adheres to the [SketchEl molecule format](http://molmatinf.com/fmtsketchel.html). Besides being straightforward and minimalistic, the _SketchEl_ molecule format is one of the very few cheminformatics datastructures that was designed with the intention of being inclusive of exotic nonorganic bonding arrangements, and so is a suitable container for the materials used in this project.
+
+There are two main editors available for DataSheet XML (`.ds`) documents: if you have a Mac, the commercial [Molecular Notebook](https://apps.apple.com/app/molecular-notebook/id1006197668) app is an option. Otherwise, the open source [SketchEl](http://sketchel.sourceforge.net) tool can be used for datasheets and molecules. It's getting a bit long in the tooth, but it is coded with cross platform Java and still works on all the main desktop platforms. Furthermore the [WebMolKit](https://github.com/aclarkxyz/web_molkit) web runtime uses these formats natively, and is the major dependency of this project. There are several experimental tools based on this toolkit, but none of them are quite ready for editing datasheets.
+
 ### Validation
 
 For the equivalence set described above, a little over 20% of the rows had problems whereby two equivalent molecules produced different InChI identifiers, or two different molecules produced the same InChI identifier. InChI identifiers were calculated using the `-FixedH` argument, after having added all hydrogens explicitly, which ensures that broken results are not caused by the implicit hydrogen calculation formula (without which the failure rate would be *much* higher).
@@ -243,6 +249,8 @@ $ git pull origin master
 ```
 
 Verify that both of the directories (`CoordInChI` and `WebMolKit`) are populated with relevant content before proceeding.
+
+Note that the names of the directories are important, especially the latter: the `CoordInChI` project explicitly refers to files in `../WebMolKit`, so if the client software picks a different directory name, it needs to be changed prior to compiling.
 
 ### 6. Compile and Run
 
