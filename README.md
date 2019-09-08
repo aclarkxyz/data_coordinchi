@@ -276,5 +276,3 @@ $ electron app data/equivalences.ds --inchi ~/bin/inchi-1
 ### 7. Visual Studio Code
 
 This last step is only important to anyone who wants to contribute to development of the project. The [Visual Studio Code](https://code.visualstudio.com/) IDE is free and lightweight (not to be confused with _Visual Studio_) and is the preferred method for editing code. It also allows the **Coordination InChI** tool to be launched with a couple of keystrokes.
-
-
