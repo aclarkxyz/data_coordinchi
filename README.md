@@ -101,7 +101,7 @@ The main point of failure with this approach is the ability to perceive the _ele
 
 ## Issues
 
-The following situations require some awareness with regard to the current proof-of-concept method for disambiguating inorganic compounds. The list should be augmented as new edge cases are found.
+The following situations require some awareness with regard to the current proof-of-concept method for disambiguating inorganic compounds. The list should be updated as new edge cases are found (or resolved).
 
 ### Anti-aromaticity
 
