@@ -1,3 +1,0 @@
-#!/usr/bin/tcsh
-setenv CSDHOME ~/CCDC/CSD_2019
-~/CCDC/Python_API_2019/miniconda/bin/python2 $*
