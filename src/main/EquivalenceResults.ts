@@ -111,10 +111,10 @@ export class EquivalenceResults
 		this.updateStats();
 
 		// setup the table
-		for (let n = 0; n < this.ds.numCols; n++) if (this.ds.colType(n) == DataSheet.COLTYPE_MOLECULE)
+		for (let n = 0; n < this.ds.numCols; n++) if (this.ds.colType(n) == DataSheetColumn.Molecule)
 		{
 			this.colMol.push(n);
-			this.colInChI.push(this.ds.ensureColumn(this.ds.colName(n) + 'InChI', DataSheet.COLTYPE_STRING, 'Computed InChI string'));
+			this.colInChI.push(this.ds.ensureColumn(this.ds.colName(n) + 'InChI', DataSheetColumn.String, 'Computed InChI string'));
 		}
 
 		if (this.callInChI.isAvailable) for (let r = 0; r < this.ds.numRows; r++) for (let n = 0; n < this.colMol.length; n++)

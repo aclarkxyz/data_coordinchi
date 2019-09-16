@@ -83,11 +83,11 @@ export class AnalyzeResults
 			this.ds.deleteColumn(colCorr);
 		}*/
 
-		this.colMol = this.ds.firstColOfType(DataSheet.COLTYPE_MOLECULE);
-		this.colFormula = this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
-		this.colError = this.ds.ensureColumn('Errors', DataSheet.COLTYPE_STRING, 'Fatal flaws with the incoming molecule');
-		this.colWarning = this.ds.ensureColumn('Warnings', DataSheet.COLTYPE_STRING, 'Questionable attributes of the incoming molecule');
-		this.colFixed = this.ds.ensureColumn('Fixes', DataSheet.COLTYPE_STRING, 'Corrections that could be made unambiguously');
+		this.colMol = this.ds.firstColOfType(DataSheetColumn.Molecule);
+		this.colFormula = this.ds.ensureColumn('Formula', DataSheetColumn.String, 'Molecular formula implied by structure');
+		this.colError = this.ds.ensureColumn('Errors', DataSheetColumn.String, 'Fatal flaws with the incoming molecule');
+		this.colWarning = this.ds.ensureColumn('Warnings', DataSheetColumn.String, 'Questionable attributes of the incoming molecule');
+		this.colFixed = this.ds.ensureColumn('Fixes', DataSheetColumn.String, 'Corrections that could be made unambiguously');
 
 		this.setupHeadings();
 		this.processRow(0);
@@ -103,9 +103,9 @@ export class AnalyzeResults
 
 		for (let n = -1; n < this.ds.numCols; n++)
 		{
-			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
+			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheetColumn.Integer : this.ds.colType(n);
 			let th = $('<th></th>').appendTo(tr);
-			th.css('text-align', ct == DataSheet.COLTYPE_STRING ? 'left' : 'center');
+			th.css('text-align', ct == DataSheetColumn.String ? 'left' : 'center');
 			th.text(title);
 		}
 	}
@@ -154,15 +154,15 @@ export class AnalyzeResults
 
 		for (let n = -1; n < this.ds.numCols; n++)
 		{
-			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheet.COLTYPE_INTEGER : this.ds.colType(n);
+			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheetColumn.Integer : this.ds.colType(n);
 			let td = $('<td></td>').appendTo(tr);
-			let align = ct == DataSheet.COLTYPE_STRING ? 'left' : 'center';
+			let align = ct == DataSheetColumn.String ? 'left' : 'center';
 			td.css({'text-align': align, 'vertical-align': 'center', 'white-space': 'pre-wrap'});
 			if (n >= 0) td.css({'margin-left': '0.3em', 'margin-right': '0.3em'});
 
 			if (n < 0) td.text((row + 1).toString());
 			else if (this.ds.isNull(row, n)) {}
-			else if (ct == DataSheet.COLTYPE_MOLECULE)
+			else if (ct == DataSheetColumn.Molecule)
 			{
 				if (n == this.colMol)
 				{
