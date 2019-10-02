@@ -375,7 +375,7 @@ this.finishedResults();
 
 	private actionPaste():void
 	{
-		if (this.proxyClip.pasteEvent) this.proxyClip.pasteEvent(this.proxyClip);
+		this.proxyClip.triggerPaste();
 	}
 }
 
