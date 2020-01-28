@@ -213,9 +213,10 @@ export class CoordPanel extends WindowPanel
 				{'name': 'Molecular DataSheet', 'extensions': ['ds']}
 			]
 		};
-		dialog.showOpenDialog(params, (filenames:string[]):void =>
+		dialog.showOpenDialog(params).then(value =>
 		{
-			if (filenames.length > 0) this.selectFile(filenames[0]);
+			if (value.canceled) return;
+			this.selectFile(value.filePaths[0]);
 		});
 	}
 
@@ -321,21 +322,21 @@ this.finishedResults();
 				{'name': 'MDL SDfile', 'extensions': ['sdf']}
 			]
 		};
-		dialog.showSaveDialog(params, (filename:string):void =>
+		dialog.showSaveDialog(params).then(value =>
 		{
-			if (!filename) return;
+			if (value.canceled) return;
 			
 			let content = '';
-			if (filename.endsWith('.ds')) content = DataSheetStream.writeXML(this.ds);
-			else if (filename.endsWith('.sdf')) content = new MDLSDFWriter(this.ds).write();
+			if (value.filePath.endsWith('.ds')) content = DataSheetStream.writeXML(this.ds);
+			else if (value.filePath.endsWith('.sdf')) content = new MDLSDFWriter(this.ds).write();
 			else
 			{
-				alert('Filename has unknown extension: ' + filename);
+				alert('Filename has unknown extension: ' + value.filePath);
 				return;
 			}
 			
-			try {fs.writeFileSync(filename, content);}
-			catch (ex) {alert('Unable to write file: ' + filename);}
+			try {fs.writeFileSync(value.filePath, content);}
+			catch (ex) {alert('Unable to write file: ' + value.filePath);}
 		});
 	}
 
@@ -364,12 +365,12 @@ this.finishedResults();
 				{'name': 'HTML', 'extensions': ['html']},
 			]
 		};
-		dialog.showSaveDialog(params, (filename:string):void =>
+		dialog.showSaveDialog(params).then(value =>
 		{
-			if (!filename) return;
+			if (value.canceled) return;
 			
-			try {fs.writeFileSync(filename, html);}
-			catch (ex) {alert('Unable to write file: ' + filename);}
+			try {fs.writeFileSync(value.filePath, html);}
+			catch (ex) {alert('Unable to write file: ' + value.filePath);}
 		});
 	}
 

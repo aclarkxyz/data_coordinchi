@@ -116,7 +116,7 @@ export class CustomStructures
 		//menu.append(new electron.remote.MenuItem({'label': 'Copy Molfile V3000', 'click': () => this.copyMDLV3000()}));
 		menu.append(new electron.remote.MenuItem({'label': 'Remove', 'click': () => this.removeStructure(card)}));
 
-		menu.popup(electron.remote.getCurrentWindow());
+		menu.popup({'window': electron.remote.getCurrentWindow()});
 	}
 
 	private copyNative(card:MoleculeCard):void
