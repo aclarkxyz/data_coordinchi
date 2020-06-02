@@ -5,7 +5,7 @@
 */
 
 ///<reference path='../../WebMolKit/src/decl/corrections.d.ts'/>
-///<reference path='../../WebMolKit/src/decl/jquery.d.ts'/>
+///<reference path='../../WebMolKit/src/decl/jquery/index.d.ts'/>
 ///<reference path='../../WebMolKit/src/util/util.ts'/>
 
 ///<reference path='decl/node.d.ts'/>

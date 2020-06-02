@@ -8,7 +8,8 @@
         "outFile": "app/coordinchi.js",
         "sourceMap": true,
         "target": "ES6",
-		"incremental": true
+		"incremental": true,
+		"lib": ["es2017", "dom"]
     },
     "include": 
     [

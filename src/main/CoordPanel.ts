@@ -5,7 +5,7 @@
 */
 
 ///<reference path='../../../WebMolKit/src/decl/corrections.d.ts'/>
-///<reference path='../../../WebMolKit/src/decl/jquery.d.ts'/>
+///<reference path='../../../WebMolKit/src/decl/jquery/index.d.ts'/>
 ///<reference path='../../../WebMolKit/src/util/util.ts'/>
 ///<reference path='../../../WebMolKit/src/sketcher/Sketcher.ts'/>
 ///<reference path='../../../WebMolKit/src/ui/ClipboardProxy.ts'/>
@@ -243,7 +243,7 @@ export class CoordPanel extends WindowPanel
 			{
 				'failOnly': this.chkFailOnly.prop('checked'),
 				'inchiFail': this.chkInChIFail.prop('checked'),
-				'startAt': parseInt(this.inputStartAt.val())
+				'startAt': parseInt(this.inputStartAt.val().toString())
 			};
 			this.task = new EquivalenceResults(this.ds, this.callInChI, opt, () => this.finishedResults());
 	
@@ -279,7 +279,7 @@ this.finishedResults();
 	// obtains the file contents, and sets this.ds if successful
 	private loadFile():void
 	{
-		this.filename = this.inputFile.val();
+		this.filename = this.inputFile.val().toString();
 		this.ds = null;
 		if (!this.filename) return;
 
