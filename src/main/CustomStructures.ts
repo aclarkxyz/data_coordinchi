@@ -52,7 +52,7 @@ export class CustomStructures
 
 	public render(parent:JQuery):void
 	{
-		this.divMain = $('<div></div>').appendTo(parent);
+		this.divMain = $('<div/>').appendTo(parent);
 		this.updateOutline();
 	}
 
@@ -62,18 +62,22 @@ export class CustomStructures
 		let dlg = new EditCompound(new Molecule());
 		dlg.title = 'Sketch Structure';
 		dlg.defineClipboard(this.proxyClip);
-		dlg.onSave(() => {this.appendStructure(dlg.getMolecule()); dlg.close();});
+		dlg.onSave(() => 
+		{
+			this.appendStructure(dlg.getMolecule()).then();
+			dlg.close();
+		});
 		dlg.open();
 	}
 
 	// add new structure to the list
-	public appendStructure(mol:Molecule):void
+	public async appendStructure(mol:Molecule):Promise<void>
 	{
 		let molExpanded = mol.clone();
 		MolUtil.expandAbbrevs(molExpanded, true);
 
 		let inchi:string = null;
-		if (this.callInChI.isAvailable) inchi = this.callInChI.calculate(molExpanded).inchi;
+		if (this.callInChI.isAvailable) inchi = (await this.callInChI.calculate([molExpanded]))[0];
 
 		let dhash = new DotHash(new DotPath(molExpanded)).calculate();
 

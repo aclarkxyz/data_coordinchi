@@ -39,10 +39,10 @@ export class MoleculeCard
 	// builds the card; the resulting content is found within the 'dom' member
 	public generate():void
 	{
-		this.dom = $('<div></div>');
+		this.dom = $('<div/>');
 		this.dom.css({'display': 'inline-block', 'margin': '0.5em', 'padding': '0.5em'});
 
-		let divMol = $('<div></div>').appendTo(this.dom).css({'text-align': 'center'});
+		let divMol = $('<div/>').appendTo(this.dom).css({'text-align': 'center'});
 		let measure = new OutlineMeasurement(0, 0, this.policy.data.pointScale);		
 		let layout = new ArrangeMolecule(this.mol, measure, this.policy);
 		layout.arrange();
@@ -50,11 +50,11 @@ export class MoleculeCard
 		let gfx = new MetaVector();
 		new DrawMolecule(layout, gfx).draw();
 		gfx.normalise();
-		this.spanMol = $('<span></span>').appendTo(divMol);
+		this.spanMol = $('<span/>').appendTo(divMol);
 		this.spanMol.css({'display': 'inline-block', 'font-size': '0' /* only way to squish the baseline gap */});
 		$(gfx.createSVG()).appendTo(this.spanMol);
 
-		let divFormula = $('<div></div>').appendTo(this.dom).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
+		let divFormula = $('<div/>').appendTo(this.dom).css({'text-align': 'center', 'font-size': '70%', 'font-weight': 'bold'});
 		divFormula.html(MolUtil.molecularFormula(this.molExpanded, ['<sub>', '</sub>', '<sup>', '</sup>']));
 		let chg = 0;
 		for (let n = 1; n <= this.molExpanded.numAtoms; n++) chg += this.molExpanded.atomCharge(n);
@@ -63,19 +63,19 @@ export class MoleculeCard
 		if (this.inchi)
 		{
 			let maxWidth = Math.max(this.dimsz, gfx.boundHighX() - gfx.boundLowX());
-			let divInChI = $('<div></div>').appendTo(this.dom).css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
+			let divInChI = $('<div/>').appendTo(this.dom).css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word'});
 
 			let bits = /^(InChI=1S?\/)([\w\d\.]+)(\/.*)$/.exec(this.inchi);
 			if (!bits)
 			{
-				let span = $('<span></span>').appendTo(divInChI);
+				let span = $('<span/>').appendTo(divInChI);
 				span.css({'color': 'white', 'background-color': '#4E1A09'});
 				span.text(this.inchi);
 			}
 			else if (!this.sameFormula(bits[2], this.mol))
 			{
 				divInChI.append(escapeHTML(bits[1]));
-				let span = $('<span></span>').appendTo(divInChI);
+				let span = $('<span/>').appendTo(divInChI);
 				span.css({'background-color': '#E0E000'});
 				span.text(bits[2]);
 				divInChI.append(escapeHTML(bits[3]));
@@ -88,7 +88,7 @@ export class MoleculeCard
 		if (this.dhash)
 		{
 			let maxWidth = Math.max(this.dimsz, gfx.boundHighX() - gfx.boundLowX());
-			let divHash = $('<div></div>').appendTo(this.dom);
+			let divHash = $('<div/>').appendTo(this.dom);
 			divHash.css({'text-align': 'left', 'font-size': '70%', 'max-width': maxWidth + 'px', 'word-wrap': 'break-word', 'margin-top': '0.1em'});
 			divHash.css({'border-top': '1px solid #C0C0C0'});
 			divHash.text(this.dhash);

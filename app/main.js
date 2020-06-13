@@ -25,13 +25,14 @@ argv.shift();
 for (let n = 0; n < argv.length; n++)
 {
 	if (argv[n] == '--inchi' && n < argv.length - 1) global['INCHI_EXEC'] = argv[++n];
+	else if (argv[n] == '--stereo') global['PARAM_STEREO'] = true;
 	else if (argv[n].startsWith('-')) {}
 	else files.push(argv[n]);
 	// (... consider other options...)
 }
 if (files.length == 0) files.push(null);
 
-const WEBPREF = {'nodeIntegration': true, 'enableRemoteModule': true};
+const WEBPREF = {'nodeIntegration': true, 'enableRemoteModule': true, 'spellcheck': false};
 const ICONFN = __dirname + '/img/icon.png';
 const BROWSER_PARAMS = {'width': 1200, 'height': 900, 'icon': ICONFN, 'webPreferences': WEBPREF};
 const INIT_URL = 'file://' + __dirname + '/index.html';

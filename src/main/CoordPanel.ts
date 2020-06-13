@@ -33,6 +33,7 @@ export class CoordPanel extends WindowPanel
 {
 	private proxyClip = new ClipboardProxy();
 	private callInChI:CallInChI;
+	private modeStereo = false;
 
 	private divHeader:JQuery;
 	private divSetup:JQuery;
@@ -40,6 +41,7 @@ export class CoordPanel extends WindowPanel
 	private divSummary:JQuery;
 	private divResults:JQuery;
 	private inputFile:JQuery;
+	private chkStereo:JQuery;
 	private chkFailOnly:JQuery;
 	private chkInChIFail:JQuery;
 	private inputStartAt:JQuery;
@@ -65,7 +67,9 @@ export class CoordPanel extends WindowPanel
 		this.proxyClip.canAlwaysGet = ():boolean => true;
 
 		const remote = require('electron').remote;
-		this.callInChI = new CallInChI(remote.getGlobal('INCHI_EXEC'));
+		this.modeStereo = !!remote.getGlobal('PARAM_STEREO');
+		this.callInChI = new CallInChI(remote.getGlobal('INCHI_EXEC'), this.modeStereo);
+
 
 		document.title = 'Coordination Analysis';
 
@@ -114,11 +118,11 @@ export class CoordPanel extends WindowPanel
 		let divMain = $('<div></div>').appendTo(this.root);
 		//divMain.css({'padding': '0.5em'});
 
-		this.divHeader = $('<div></div>').appendTo(divMain);
-		this.divSetup = $('<div></div>').appendTo(divMain);
-		this.divCustom = $('<div></div>').appendTo(divMain);
-		this.divSummary = $('<div></div>').appendTo(divMain);
-		this.divResults = $('<div></div>').appendTo(divMain);
+		this.divHeader = $('<div/>').appendTo(divMain);
+		this.divSetup = $('<div/>').appendTo(divMain);
+		this.divCustom = $('<div/>').appendTo(divMain);
+		this.divSummary = $('<div/>').appendTo(divMain);
+		this.divResults = $('<div/>').appendTo(divMain);
 
 		this.buildHeader();
 		this.buildSetup();
@@ -126,13 +130,13 @@ export class CoordPanel extends WindowPanel
 
 	private buildHeader():void
 	{
-		let divTitle = $('<div></div>').appendTo(this.divHeader);
+		let divTitle = $('<div/>').appendTo(this.divHeader);
 		divTitle.css({'margin': '0.25em', 'text-align': 'center'});
 		divTitle.css({'font-size': '2.5em', 'font-family': '"Helvetica Neue", Tahoma, Geneva, sans-serif', 'font-weight': 'bold', 'text-shadow': '2px 2px 1px #808080'});
 		divTitle.html('<big>C</big>OORDINATION <big>I</big>N<big>C</big>H<big>I</big>');
 
-		let divInfo = $('<div></div>').appendTo(this.divHeader).css({'margin': '0.5em', 'text-align': 'center'});
-		let spanInfo = $('<span></span>').appendTo(divInfo).css({'max-width': '40em', 'display': 'inline-block', 'text-align': 'left'});
+		let divInfo = $('<div/>').appendTo(this.divHeader).css({'margin': '0.5em', 'text-align': 'center'});
+		let spanInfo = $('<span/>').appendTo(divInfo).css({'max-width': '40em', 'display': 'inline-block', 'text-align': 'left'});
 		spanInfo.append('Validation tools. Runs through training sets or user-specified molecules and examines the performance of standard InChI. ');
 		spanInfo.append('Datasets are focused on exotic coordination bonds which cause trouble for most contemporary cheminformatics algorithms. ');
 	}
@@ -140,13 +144,13 @@ export class CoordPanel extends WindowPanel
 	private buildSetup():void
 	{
 		this.divSetup.empty();
-		let divMain = $('<div></div>').appendTo(this.divSetup).css('padding', '0.5em');
+		let divMain = $('<div/>').appendTo(this.divSetup).css('padding', '0.5em');
 
-		let divInput = $('<div></div>').appendTo(divMain);
+		let divInput = $('<div/>').appendTo(divMain);
 		divInput.css({'width': '100%', 'display': 'flex'});
 		let spanTitle = $('<span>File:</span>').appendTo(divInput);
 		spanTitle.css({'align-self': 'center'});
-		this.inputFile = $('<input type="text" size="40"></input>').appendTo(divInput);
+		this.inputFile = $('<input type="text" size="40"/>').appendTo(divInput);
 		this.inputFile.css({'flex-grow': '1', 'font': 'inherit', 'margin': '0 0.5em 0 0.5em'});
 		this.inputFile.keypress((event:JQueryEventObject) => {if (event.keyCode == 13) this.runAnalysis();});
 		let btnPick = $('<button class="wmk-button wmk-button-default">Pick</button>').appendTo(divInput);
@@ -158,31 +162,33 @@ export class CoordPanel extends WindowPanel
 		let divOptions = $('<div></div>').appendTo(divMain).css({'text-align': 'center', 'padding': '0.5em'});
 		let spanOptions = $('<div></div>').appendTo(divOptions).css({'text-align': 'left', 'display': 'inline-block'});
 
-		let makeCheck = (txt:string):JQuery =>
+		let makeCheck = (txt:string, value:boolean):JQuery =>
 		{
-			let div = $('<div></div>').appendTo(spanOptions);
-			let label = $('<label></label>').appendTo(div);
-			let chk = $('<input type="checkbox"></input>').appendTo(label);
+			let div = $('<div/>').appendTo(spanOptions);
+			let label = $('<label/>').appendTo(div);
+			let chk = $('<input type="checkbox"/>').appendTo(label);
 			label.append(txt);
+			chk.prop('checked', value);
 			return chk;
 		};
 		let makeInput = (txt:string, width:number):JQuery =>
 		{
-			let div = $('<div></div>').appendTo(spanOptions);
+			let div = $('<div/>').appendTo(spanOptions);
 			div.append(txt);
-			let input = $('<input type="text"></input>').appendTo(div);
+			let input = $('<input type="text"/>').appendTo(div);
 			input.css({'font': 'inherit', 'margin-left': '0.5em'});
 			input.attr('size', width.toString());
 			return input;
 		};
 
-		this.chkFailOnly = makeCheck('Show failure cases only');
-		this.chkInChIFail = makeCheck('Count standard InChI clashes as failures');
+		this.chkStereo = makeCheck('Evaluate stereochemistry', this.modeStereo);
+		this.chkFailOnly = makeCheck('Show failure cases only', false);
+		this.chkInChIFail = makeCheck('Count standard InChI clashes as failures', false);
 		this.inputStartAt = makeInput('Start at row #', 10);
 
 		// action buttons
 
-		let divRun = $('<div></div>').appendTo(divMain);
+		let divRun = $('<div/>').appendTo(divMain);
 		divRun.css({'display': 'flex', 'justify-content': 'center'});
 		
 		this.btnRun = $('<button class="wmk-button wmk-button-primary">Run</button>').appendTo(divRun).css({'margin': '0.5em'});
@@ -225,10 +231,10 @@ export class CoordPanel extends WindowPanel
 		this.divSummary.empty();
 		this.divResults.empty();
 
-		let areaSummary = $('<div></div>').appendTo(this.divSummary).css('padding', '0.5em');
+		let areaSummary = $('<div/>').appendTo(this.divSummary).css('padding', '0.5em');
 		areaSummary.css({'border-top': '1px solid #808080', 'border-bottom': '1px solid #808080'});
 		areaSummary.text('Loading...');
-		let areaResults = $('<div></div>').appendTo(this.divResults).css('padding', '0.5em');
+		let areaResults = $('<div/>').appendTo(this.divResults).css('padding', '0.5em');
 
 		this.btnRun.prop('disabled', true);
 		this.btnCancel.prop('disabled', false);
@@ -241,6 +247,7 @@ export class CoordPanel extends WindowPanel
 			if (!this.ds) return;
 			let opt:EquivalenceResultsOptions =
 			{
+				'stereochemistry': this.chkStereo.prop('checked'),
 				'failOnly': this.chkFailOnly.prop('checked'),
 				'inchiFail': this.chkInChIFail.prop('checked'),
 				'startAt': parseInt(this.inputStartAt.val().toString())
@@ -260,9 +267,6 @@ export class CoordPanel extends WindowPanel
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 		this.btnDraw.prop('disabled', false);
-
-// !!! fnord
-this.finishedResults();		
 	}
 
 	// give the user a chance to draw a molecule
@@ -297,7 +301,7 @@ this.finishedResults();
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 
-		let paraSave = $('<p></p>').appendTo(this.divSummary);
+		let paraSave = $('<p/>').appendTo(this.divSummary);
 		paraSave.css({'text-align': 'center'});
 		
 		let btnSaveData = $('<button class="wmk-button wmk-button-primary">Save Data</button>').appendTo(paraSave);
