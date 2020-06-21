@@ -46,6 +46,8 @@ interface EquivalenceRow
 	diffExpanded:Molecule[];
 	diffInChI:string[];
 	diffDHash:string[];
+
+	rubric:string;
 }
 
 export interface EquivalenceResultsOptions
@@ -59,7 +61,6 @@ export interface EquivalenceResultsOptions
 export class EquivalenceResults
 {
 	private cancelled = false;
-	private rosterInChI:number[][] = []; // array of [row, molcol, inchicol]
 
 	private divSummary:JQuery;
 	private divContent:JQuery;
@@ -76,6 +77,7 @@ export class EquivalenceResults
 
 	private colMol:number[] = [];
 	private colDiff:number[] = [];
+	private colRubric = -1
 	private rows:EquivalenceRow[] = [];
 
 	protected policy:RenderPolicy;
@@ -124,9 +126,10 @@ export class EquivalenceResults
 			let cname = this.ds.colName(n);
 			if (!cname.startsWith('Diff'))
 				this.colMol.push(n);
-			else 
+			else
 				this.colDiff.push(n);
 		}
+		this.colRubric = this.ds.findColByName('Rubric', DataSheetColumn.String);
 
 		this.spanStatus.text('Preprocessing');
 
@@ -144,12 +147,13 @@ export class EquivalenceResults
 				'diffExpanded': [],
 				'diffInChI': [],
 				'diffDHash': [],
+				'rubric': null,
 			};
 			for (let i = 0; i < this.colMol.length; i++) if (this.ds.notNull(n, this.colMol[i]))
 			{
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
 				let molExpanded = mol.clone();
-				MolUtil.expandAbbrevs(molExpanded, false);
+				MolUtil.expandAbbrevs(molExpanded, true);
 				
 				// temporary bandaid: take the CSD-imported aromatic bond type and turn it into the "foreign" designation, which is used by dotpath
 				for (let b = 1; b <= molExpanded.numBonds; b++) if (molExpanded.bondExtra(b).indexOf('xAromatic') >= 0)
@@ -181,6 +185,7 @@ export class EquivalenceResults
 
 				eqr.diffDHash.push(null);
 			}
+			if (this.colRubric >= 0) eqr.rubric = this.ds.getString(n, this.colRubric) || '';
 			this.rows.push(eqr);
 		}
 
@@ -224,11 +229,23 @@ export class EquivalenceResults
 		flex.css({'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'flex-start', 'align-items': 'flex-start'});
 
 		let eqr = this.rows[row];
+
+		if (eqr.rubric != null)
+		{
+			let strRubric = this.assembleRubric(eqr.molList[0]);
+			if (strRubric != eqr.rubric)
+			{
+				console.log('** RUBRIC mismatch for row#' + (row + 1) + ' rubric:');
+				console.log('    expected: ' + eqr.rubric);
+				console.log('         got: ' + strRubric);
+			}
+		}
+
 		let nmol = eqr.molList.length, ndiff = eqr.diffList.length;
 		for (let n = 0; n < nmol; n++)
 		{
 			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n];
-			let dhash = new DotHash(new DotPath(molExpanded)).calculate();
+			let dhash = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry).calculate();
 			eqr.dhashList[n] = dhash;
 
 			let [card, spanMol] = this.generateCard(mol, molExpanded, inchi, dhash, 300);
@@ -244,7 +261,7 @@ export class EquivalenceResults
 		for (let n = 0; n < ndiff; n++)
 		{
 			let molExpanded = eqr.diffExpanded[n];
-			eqr.diffDHash[n] = new DotHash(new DotPath(molExpanded)).calculate();
+			eqr.diffDHash[n] = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry).calculate();
 		}
 
 		// compare equivalents within same row
@@ -348,6 +365,8 @@ export class EquivalenceResults
 		else this.numPassed++;
 		this.updateStats();
 
+//console.log('!!');
+//return;
 		setTimeout(() => this.processRow(row + 1), 1);
 	}
 
@@ -364,7 +383,7 @@ export class EquivalenceResults
 		{
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
 			mol.swapAtoms(a1, a2);
-			let phash = new DotHash(new DotPath(mol)).calculate();
+			let phash = new DotHash(new DotPath(mol), this.opt.stereochemistry).calculate();
 			if (dhash != phash) 
 			{
 				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
@@ -402,6 +421,21 @@ export class EquivalenceResults
 				span.click(() => $('html, body').animate({'scrollTop': this.tableRows[row].offset().top}, 500));
 			}
 		}
+	}
+
+	// produces a string that describes the stereochemistry rubric
+	private assembleRubric(mol:Molecule):string
+	{
+		let bits:string[] = [];
+		let meta = MetaMolecule.createStrictRubric(mol);
+
+		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricTetra[n - 1]) bits.push(`[T${n}:${meta.rubricTetra[n - 1]}]`);
+		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricSquare[n - 1]) bits.push(`[P${n}:${meta.rubricSquare[n - 1]}]`);
+		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricBipy[n - 1]) bits.push(`[B${n}:${meta.rubricBipy[n - 1]}]`);
+		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricOcta[n - 1]) bits.push(`[O${n}:${meta.rubricOcta[n - 1]}]`);
+		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1]) bits.push(`[S${n}:${meta.rubricSides[n - 1]}]`);
+		
+		return bits.join(';');
 	}
 }
 

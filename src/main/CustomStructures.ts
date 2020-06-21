@@ -79,7 +79,7 @@ export class CustomStructures
 		let inchi:string = null;
 		if (this.callInChI.isAvailable) inchi = (await this.callInChI.calculate([molExpanded]))[0];
 
-		let dhash = new DotHash(new DotPath(molExpanded)).calculate();
+		let dhash = new DotHash(new DotPath(molExpanded), false).calculate();
 
 		let card = new MoleculeCard(mol, molExpanded, inchi, dhash, 300, this.policy);
 		card.generate();
