@@ -56,6 +56,7 @@ export interface EquivalenceResultsOptions
 	failOnly:boolean; // only render rows that have a failure case of some kind
 	inchiFail:boolean; // record failure when standard InChI fails to achieve desired effect (which happens a lot)
 	startAt:number; // first row (1-based)
+	endAt:number; // last row (1-based)
 }
 
 export class EquivalenceResults
@@ -212,7 +213,7 @@ export class EquivalenceResults
 			return;
 		}
 
-		if (row >= this.ds.numRows)
+		if (row >= this.ds.numRows || (this.opt.endAt > 0 && row >= this.opt.endAt))
 		{
 			this.spanStatus.text('Finished');
 			this.callbackDone();
@@ -427,13 +428,19 @@ export class EquivalenceResults
 	private assembleRubric(mol:Molecule):string
 	{
 		let bits:string[] = [];
-		let meta = MetaMolecule.createStrictRubric(mol);
+		let meta = MetaMolecule.createRubric(mol);
 
-		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricTetra[n - 1]) bits.push(`[T${n}:${meta.rubricTetra[n - 1]}]`);
-		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricSquare[n - 1]) bits.push(`[P${n}:${meta.rubricSquare[n - 1]}]`);
-		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricBipy[n - 1]) bits.push(`[B${n}:${meta.rubricBipy[n - 1]}]`);
-		for (let n = 1; n <= mol.numAtoms; n++) if (meta.rubricOcta[n - 1]) bits.push(`[O${n}:${meta.rubricOcta[n - 1]}]`);
-		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1]) bits.push(`[S${n}:${meta.rubricSides[n - 1]}]`);
+		for (let n = 1; n <= mol.numAtoms; n++) 
+		{
+			if (meta.rubricTetra[n - 1]) bits.push(`[T${n}:${meta.rubricTetra[n - 1]}]`);
+			else if (meta.rubricSquare[n - 1]) bits.push(`[P${n}:${meta.rubricSquare[n - 1]}]`);
+			else if (meta.rubricBipy[n - 1]) bits.push(`[B${n}:${meta.rubricBipy[n - 1]}]`);
+			else if (meta.rubricOcta[n - 1]) bits.push(`[O${n}:${meta.rubricOcta[n - 1]}]`);
+		}
+		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1] && !mol.bondInRing(n)) 
+		{
+			bits.push(`[S${n}:${meta.rubricSides[n - 1]}]`);
+		}
 		
 		return bits.join(';');
 	}

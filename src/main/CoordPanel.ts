@@ -45,6 +45,7 @@ export class CoordPanel extends WindowPanel
 	private chkFailOnly:JQuery;
 	private chkInChIFail:JQuery;
 	private inputStartAt:JQuery;
+	private inputEndAt:JQuery;
 	private btnRun:JQuery;
 	private btnCancel:JQuery;
 	private btnDraw:JQuery;
@@ -159,8 +160,8 @@ export class CoordPanel extends WindowPanel
 
 		// options
 
-		let divOptions = $('<div></div>').appendTo(divMain).css({'text-align': 'center', 'padding': '0.5em'});
-		let spanOptions = $('<div></div>').appendTo(divOptions).css({'text-align': 'left', 'display': 'inline-block'});
+		let divOptions = $('<div/>').appendTo(divMain).css({'text-align': 'center', 'padding': '0.5em'});
+		let spanOptions = $('<div/>').appendTo(divOptions).css({'text-align': 'left', 'display': 'inline-block'});
 
 		let makeCheck = (txt:string, value:boolean):JQuery =>
 		{
@@ -171,12 +172,11 @@ export class CoordPanel extends WindowPanel
 			chk.prop('checked', value);
 			return chk;
 		};
-		let makeInput = (txt:string, width:number):JQuery =>
+		let makeInput = (divParent:JQuery, txt:string, width:number):JQuery =>
 		{
-			let div = $('<div/>').appendTo(spanOptions);
-			div.append(txt);
-			let input = $('<input type="text"/>').appendTo(div);
-			input.css({'font': 'inherit', 'margin-left': '0.5em'});
+			divParent.append(txt);
+			let input = $('<input type="text"/>').appendTo(divParent);
+			input.css({'font': 'inherit', 'margin': '0 0.5em 0 0.5em'});
 			input.attr('size', width.toString());
 			return input;
 		};
@@ -184,7 +184,10 @@ export class CoordPanel extends WindowPanel
 		this.chkStereo = makeCheck('Evaluate stereochemistry', this.modeStereo);
 		this.chkFailOnly = makeCheck('Show failure cases only', false);
 		this.chkInChIFail = makeCheck('Count standard InChI clashes as failures', false);
-		this.inputStartAt = makeInput('Start at row #', 10);
+
+		let divRange = $('<div/>').appendTo(spanOptions);
+		this.inputStartAt = makeInput(divRange, 'Start at row #', 5);
+		this.inputEndAt = makeInput(divRange, 'to', 5);
 
 		// action buttons
 
@@ -250,7 +253,8 @@ export class CoordPanel extends WindowPanel
 				'stereochemistry': this.chkStereo.prop('checked'),
 				'failOnly': this.chkFailOnly.prop('checked'),
 				'inchiFail': this.chkInChIFail.prop('checked'),
-				'startAt': parseInt(this.inputStartAt.val().toString())
+				'startAt': parseInt(this.inputStartAt.val().toString()),
+				'endAt': parseInt(this.inputEndAt.val().toString()),
 			};
 			this.task = new EquivalenceResults(this.ds, this.callInChI, opt, () => this.finishedResults());
 	

@@ -73,25 +73,35 @@ export class DotHash
 
 		if (this.withStereo)
 		{
-			let meta = MetaMolecule.createStrictRubric(mol);
+			let meta = MetaMolecule.createRubric(mol);
 
-			let zeroBased = (atoms:number[][]):number[][] =>
+			/*let zeroBased = (atoms:number[][]):number[][] =>
 			{
 				let zero = atoms.slice(0);
 				for (let n = 0; n < zero.length; n++) if (zero[n]) zero[n] = Vec.sub(zero[n], 1);
 				return zero;
 			};
-
 			this.rubricTetra = zeroBased(meta.rubricTetra);
 			this.rubricSquare = zeroBased(meta.rubricSquare);
 			this.rubricBipy = zeroBased(meta.rubricBipy);
-			this.rubricOcta = zeroBased(meta.rubricOcta);
+			this.rubricOcta = zeroBased(meta.rubricOcta);*/
+			this.rubricTetra = Vec.anyArray(null, na);
+			this.rubricSquare = Vec.anyArray(null, na);
+			this.rubricBipy = Vec.anyArray(null, na);
+			this.rubricOcta = Vec.anyArray(null, na);
+			for (let n = 0; n < na; n++)
+			{
+				if (meta.rubricTetra[n]) this.rubricTetra[n] = Vec.sub(meta.rubricTetra[n], 1);
+				else if (meta.rubricSquare[n]) this.rubricSquare[n] = Vec.sub(meta.rubricSquare[n], 1);
+				else if (meta.rubricBipy[n]) this.rubricBipy[n] = Vec.sub(meta.rubricBipy[n], 1);
+				else if (meta.rubricOcta[n]) this.rubricOcta[n] = Vec.sub(meta.rubricOcta[n], 1);
+			}
 
 			this.rubricSides = Vec.anyArray(null, na);
 			for (let n = 0; n < meta.rubricSides.length; n++)
 			{
 				let sides = meta.rubricSides[n];
-				if (!sides) continue;
+				if (!sides || mol.bondInRing(n + 1)) continue;
 				let [bfr, bto] = mol.bondFromTo(n + 1);
 				this.rubricSides[bfr - 1] = [sides[0] - 1, sides[1] - 1, sides[2] - 1, sides[3] - 1];
 				this.rubricSides[bto - 1] = [sides[2] - 1, sides[3] - 1, sides[0] - 1, sides[1] - 1];
@@ -203,7 +213,7 @@ export class DotHash
 			for (let n = 0; n < this.atompri.length; n++)
 			{
 				let rubric:number[] = null, perm:number[][] = null;
-				if (!this.withStereo) {}
+				if (!this.withStereo /*|| !this.atomeqv*/) {}
 				else if (this.rubricTetra[n]) [rubric, perm] = [this.rubricTetra[n], Stereochemistry.RUBRIC_EQUIV_TETRA];
 				else if (this.rubricSquare[n]) [rubric, perm] = [this.rubricSquare[n], Stereochemistry.RUBRIC_EQUIV_SQUARE];
 				else if (this.rubricBipy[n]) [rubric, perm] = [this.rubricBipy[n], Stereochemistry.RUBRIC_EQUIV_BIPY];
@@ -235,10 +245,103 @@ export class DotHash
 		this.atomeqv = Vec.duplicate(this.atompri);
 		if (!this.withStereo) return;
 
-		// !! TODO: look for symmetry within the rubric, to eliminate some o fthem
+		const g = this.g, mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
+
+		for (let n = 0; n < na; n++)
+		{
+			// tetrahedral chirality inactive if any two equivalent neighbours
+			if (this.rubricTetra[n])
+			{
+				let eq = this.neighbourWalkEquivalents([n], this.rubricTetra[n]);
+				outer: for (let i = 0; i < 3; i++) for (let j = i + 1; j < 4; j++) if (eq[i] == eq[j])
+				{
+					this.rubricTetra[n] = null;
+					break outer;
+				}
+			}
+
+			// square planar stereochemistry inactive if any 3 identical constituents
+			if (this.rubricSquare[n])
+			{
+				let eq = this.neighbourWalkEquivalents([n], this.rubricSquare[n]);
+				for (let i = 0; i < 4; i++)
+				{
+					let nsame = 0;
+					for (let j = 0; j < 4; j++) if (j != i && eq[i] == eq[j]) nsame++;
+					if (nsame >= 3)
+					{
+						this.rubricSquare[n] = null;
+						break;
+					}
+				}
+			}
+
+			// trigonal bipyramidal stereochemistry inactive if either of two orthonal planes
+			if (this.rubricBipy[n])
+			{
+				let eq = this.neighbourWalkEquivalents([n], this.rubricBipy[n]);
+				if (eq[0] == eq[1] || eq[2] == eq[3] || eq[2] == eq[4] || eq[3] == eq[4]) this.rubricBipy[n] = null;
+			}
+
+			// octahedral stereochemistry inactive if any 5 identical constituents
+			if (this.rubricOcta[n])
+			{
+				let eq = this.neighbourWalkEquivalents([n], this.rubricOcta[n]);
+				for (let i = 0; i < 6; i++)
+				{
+					let nsame = 0;
+					for (let j = 0; j < 6; j++) if (j != i && eq[i] == eq[j]) nsame++;
+					if (nsame >= 5)
+					{
+						this.rubricOcta[n] = null;
+						break;
+					}
+				}
+			}
+		}
+
+		// bondsides can be eliminated if either side is identical
+		for (let n = 0; n < nb; n++) if (this.rubricSides[n])
+		{
+			let i1 = mol.bondFrom(n + 1) - 1, i2 = mol.bondTo(n + 1) - 1;
+			let eq = this.neighbourWalkEquivalents([i1, i2], this.rubricSides[n]);
+			if (eq[0] == eq[1] || eq[2] == eq[3]) this.rubricSides[n] = null;
+		}
 	}
 
-	// for a 0-based node index, return an array that identifies its current priority sequence; if the rubric/perm parameters are not null, these
+	// for a list of neighbours immediately adjacent to atom(s), return a value for each such that same number = same thing; this takes into account meta
+	// stereochemistry along the walk path
+	private neighbourWalkEquivalents(src:number[], nbr:number[]):number[]
+	{
+		let pri:number[] = [];
+		for (let n of nbr) pri.push(n < 0 ? 0 : this.atomeqv[n]);
+
+/* (necessary?)
+		const sz = nbr.length;
+		let nsame = 0;
+		for (let i = 0; i < sz - 1; i++) for (let j = i + 1; j < sz; j++) if (pri[i] == pri[j]) nsame++;
+		if (nsame == 0) return pri; // they're all already different, no need to do any further analysis
+
+		// examine each group
+		let umask = Vec.booleanArray(false, sz);
+		for (let i = 0; i < sz; i++) if (!umask[i])
+		{
+			let grp:number[] = [i];
+			for (let j = i + 1; j < sz; j++) if (pri[j] == pri[j])
+			{
+				grp.push(j);
+				umask[j] = true;
+			}
+		}
+
+		// !! if they're all already different, stop
+		// !! any group of same value, and not terminal, do a long walk out to see if they are really the same...
+*/
+
+		return pri;
+	}
+
+	// for a 0-based node index, return an array that identifies its current priority sequence
 	private adjacentPriority(idx:number, rubric:number[], perm:number[][]):number[]
 	{
 		const g = this.g, sz = g.numNodes, atompri = this.atompri, nbrType = this.nbrType;
@@ -439,7 +542,7 @@ export class DotHash
 			for (let n = 1; n < perm.length; n++)
 			{
 				let permpri = Vec.idxGet(adjpri, perm[n]);
-				for (let i = 0; i < permpri.length; i++) 
+				for (let i = 0; i < permpri.length; i++)
 				{
 					if (permpri[i] < bestpri[i]) {bestpri = permpri; break;}
 					if (permpri[i] > bestpri[i]) break;
@@ -458,7 +561,7 @@ export class DotHash
 			for (let n = 1; n < perm.length; n++)
 			{
 				let permpri = Vec.idxGet(adjpri, perm[n]);
-				for (let i = 0; i < permpri.length; i++) 
+				for (let i = 0; i < permpri.length; i++)
 				{
 					if (permpri[i] < bestpri[i]) {bestpri = permpri; break;}
 					if (permpri[i] > bestpri[i]) break;
@@ -476,7 +579,7 @@ export class DotHash
 //console.log('EQUIVS:'+this.atomeqv);
 		// do atoms first
 		let order = Vec.idxSort(this.atompri);
-//console.log('-----COMPOSING----')		
+//console.log('-----COMPOSING----')
 		for (let i of order)
 		{
 			let el = mol.atomElement(i + 1), hc = this.hcount[i], num = this.chgNumer[i], den = this.chgDenom[i];
@@ -488,9 +591,10 @@ export class DotHash
 			else if (this.rubricSquare[i]) par = parity(this.rubricSquare[i], Stereochemistry.RUBRIC_EQUIV_SQUARE);
 			else if (this.rubricBipy[i]) par = parity(this.rubricBipy[i], Stereochemistry.RUBRIC_EQUIV_BIPY);
 			else if (this.rubricOcta[i]) par = parity(this.rubricOcta[i], Stereochemistry.RUBRIC_EQUIV_OCTA);
-			else if (this.rubricSides[i]) par = parity(this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);			
+			else if (this.rubricSides[i]) par = parity(this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);
 			let pstr = par == null ? '' : '!' + par;
-//console.log('atom='+(i+1)+'/'+mol.atomElement(i + 1)+' '+JSON.stringify([this.rubricTetra[i], this.rubricSquare[i], this.rubricBipy[i], this.rubricOcta[i], this.rubricSides[i]])+ ' parity='+par);
+//console.log('atom='+(i+1)+'/'+mol.atomElement(i + 1)+' '+JSON.stringify([this.rubricTetra[i], this.rubricSquare[i],
+//	this.rubricBipy[i], this.rubricOcta[i], this.rubricSides[i]])+ ' parity='+par);
 
 			bits.push('[' + el + ',' + hc + ',' + num + '/' + den + pstr + ']');
 		}
