@@ -4,7 +4,7 @@
 <Title></Title>
 <Description><![CDATA[]]></Description>
 </Summary>
-<Header nrows="23" ncols="4">
+<Header nrows="24" ncols="4">
 <Column name="Molecule" type="molecule" id="1">Molecular structure</Column>
 <Column name="Rubric" type="string" id="2"></Column>
 <Column name="Equiv1" type="molecule" id="3"></Column>
@@ -1804,6 +1804,34 @@ C=3.0281,-4.7483;0,0,i3
 9-13=1,0
 !End
 ]]></Cell>
+</Row>
+<Row id="24">
+<Cell id="1"><![CDATA[SketchEl!(5,4)
+C=0.0000,0.0000;0,0,i0
+Cl=1.2990,-0.7500;0,0,i0
+F=-1.2990,-0.7500;0,0,i0
+C=0.7500,1.2990;0,0,i3
+C=-0.7500,1.2990;0,0,i3
+1-2=1,0
+1-3=1,0
+1-4=1,0
+1-5=1,0
+!End
+]]></Cell>
+<Cell id="2"></Cell>
+<Cell id="3"><![CDATA[SketchEl!(5,4)
+C=0.0000,0.0000;0,0,i0
+Cl=1.2990,-0.7500;0,0,i0
+F=-1.2990,-0.7500;0,0,i0
+C=0.7500,1.2990;0,0,i3
+C=-0.7500,1.2990;0,0,i3
+1-2=1,0
+1-3=1,0
+1-4=1,1
+1-5=1,2
+!End
+]]></Cell>
+<Cell id="4"></Cell>
 </Row>
 </Content>
 </DataSheet>
