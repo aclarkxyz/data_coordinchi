@@ -377,6 +377,7 @@ export class EquivalenceResults
 	{
 		if (mol.numAtoms <= 1) return;
 
+		let origMol = mol;
 		mol = mol.clone();
 		mol.keepTransient = true; // have some that we want to keep
 
@@ -390,6 +391,8 @@ export class EquivalenceResults
 				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
 				console.log('ORIGINAL:' + dhash);
 				console.log('PERMUTED:' + phash);
+				console.log('Original Molecule:\n' + origMol);
+				console.log('Permuted Molecule:\n' + mol);
 				throw 'Dot hashes differ';
 			}
 		}

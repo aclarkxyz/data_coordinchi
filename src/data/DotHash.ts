@@ -71,20 +71,34 @@ export class DotHash
 	{
 		let mol = this.dot.mol, na = mol.numAtoms;
 
+		// count up implicit hydrogens
+		this.hcount = [];
+		for (let n = 1; n <= mol.numAtoms; n++) this.hcount.push(mol.atomHydrogens(n));
+
+		// see if any hydrogens need to be deleted
+		let pathMask = Vec.booleanArray(false, mol.numAtoms);
+		for (let pblk of this.dot.paths) for (let a of pblk.atoms) pathMask[a - 1] = true;
+
+		let keepMask = Vec.booleanArray(true, mol.numAtoms);
+		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.boringHydrogen(mol, n))
+		{
+			this.hcount[mol.atomAdjList(n)[0] - 1]++;
+			keepMask[n - 1] = false;
+		}
+		if (Vec.anyFalse(keepMask))
+		{
+			mol = mol.clone();
+			for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
+
+			mol = MolUtil.subgraphMask(mol, keepMask);
+			this.hcount = Vec.maskGet(this.hcount, keepMask);
+			this.dot = new DotPath(mol);
+		}
+
 		if (this.withStereo)
 		{
 			let meta = MetaMolecule.createRubric(mol);
 
-			/*let zeroBased = (atoms:number[][]):number[][] =>
-			{
-				let zero = atoms.slice(0);
-				for (let n = 0; n < zero.length; n++) if (zero[n]) zero[n] = Vec.sub(zero[n], 1);
-				return zero;
-			};
-			this.rubricTetra = zeroBased(meta.rubricTetra);
-			this.rubricSquare = zeroBased(meta.rubricSquare);
-			this.rubricBipy = zeroBased(meta.rubricBipy);
-			this.rubricOcta = zeroBased(meta.rubricOcta);*/
 			this.rubricTetra = Vec.anyArray(null, na);
 			this.rubricSquare = Vec.anyArray(null, na);
 			this.rubricBipy = Vec.anyArray(null, na);
@@ -107,30 +121,6 @@ export class DotHash
 				this.rubricSides[bto - 1] = [sides[2] - 1, sides[3] - 1, sides[0] - 1, sides[1] - 1];
 			}
 		}
-
-		// count up implicit hydrogens
-		this.hcount = [];
-		for (let n = 1; n <= mol.numAtoms; n++) this.hcount.push(mol.atomHydrogens(n));
-
-		// see if any hydrogens need to be deleted
-		let pathMask = Vec.booleanArray(false, mol.numAtoms);
-		for (let pblk of this.dot.paths) for (let a of pblk.atoms) pathMask[a - 1] = true;
-
-		let keepMask = Vec.booleanArray(true, mol.numAtoms);
-		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.boringHydrogen(mol, n))
-		{
-			this.hcount[mol.atomAdjList(n)[0] - 1]++;
-			keepMask[n - 1] = false;
-		}
-		if (Vec.anyFalse(keepMask))
-		{
-			mol = mol.clone(); // !! MAKE IT a bit faster
-			for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
-
-			mol = MolUtil.subgraphMask(mol, keepMask);
-			this.hcount = Vec.maskGet(this.hcount, keepMask);
-			this.dot = new DotPath(mol);
-		}
 	}
 
 	// same as the public method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also allowed to
@@ -146,6 +136,10 @@ export class DotHash
 		if (mol.atomElement(other) == 'H') return false;
 		let bond = mol.atomAdjBonds(atom)[0];
 		if (mol.bondOrder(bond) != 1) return false;
+
+		let atno = mol.atomicNumber(other);
+		if (Chemistry.ELEMENT_BLOCKS[atno] >= 3) return false; // neighbour is d-block or later
+		if (mol.atomHydrogens(other) + mol.atomAdjCount(other) > 4) return false; // neighbour has high valence
 
 		return true;
 	}
