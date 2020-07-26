@@ -80,7 +80,7 @@ export class DotHash
 		for (let pblk of this.dot.paths) for (let a of pblk.atoms) pathMask[a - 1] = true;
 
 		let keepMask = Vec.booleanArray(true, mol.numAtoms);
-		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.boringHydrogen(mol, n))
+		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.unwantedHydrogen(mol, n))
 		{
 			this.hcount[mol.atomAdjList(n)[0] - 1]++;
 			keepMask[n - 1] = false;
@@ -123,9 +123,9 @@ export class DotHash
 		}
 	}
 
-	// same as the public method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also allowed to
+	// similar to the boringHydrogen method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also allowed to
 	// snip hydrogens bonded to exotic elements
-	private boringHydrogen(mol:Molecule, atom:number):boolean
+	private unwantedHydrogen(mol:Molecule, atom:number):boolean
 	{
 		if (mol.atomElement(atom) != 'H') return false;
 
@@ -254,10 +254,13 @@ export class DotHash
 				}
 			}
 
+			let multident = mol.atomRingBlock(n + 1) > 0; // things get more interesting when at least one ligand is multidentate
+
 			// square planar stereochemistry inactive if any 3 identical constituents
 			if (this.rubricSquare[n])
 			{
 				let eq = this.neighbourWalkEquivalents([n], this.rubricSquare[n]);
+				if (multident) this.incorporateMultidentate(eq, n, this.rubricSquare[n]);
 				for (let i = 0; i < 4; i++)
 				{
 					let nsame = 0;
@@ -270,10 +273,14 @@ export class DotHash
 				}
 			}
 
+			// (note: stereochemical deactivation for higher orders is disabled if any of the ligands are bidentate, i.e. the central atom
+			// is in a ring block)
+
 			// trigonal bipyramidal stereochemistry inactive if either of two orthonal planes
 			if (this.rubricBipy[n])
 			{
 				let eq = this.neighbourWalkEquivalents([n], this.rubricBipy[n]);
+				if (multident) this.incorporateMultidentate(eq, n, this.rubricBipy[n]);
 				if (eq[0] == eq[1] || eq[2] == eq[3] || eq[2] == eq[4] || eq[3] == eq[4]) this.rubricBipy[n] = null;
 			}
 
@@ -281,6 +288,7 @@ export class DotHash
 			if (this.rubricOcta[n])
 			{
 				let eq = this.neighbourWalkEquivalents([n], this.rubricOcta[n]);
+				if (multident) this.incorporateMultidentate(eq, n, this.rubricOcta[n]);
 				for (let i = 0; i < 6; i++)
 				{
 					let nsame = 0;
@@ -335,6 +343,41 @@ export class DotHash
 		return pri;
 	}
 
+	// given that we have equivalence values for a stereocentre, factor in the possibility that we may have multidentate ligands that have the same
+	// priorities, but by virtue of being part of a different ligand, they need to be distinguished; groups of unique multidentate ligands will get a
+	// bump to their equivalence value which is arbitrary, but still preserves the canonical invariance of the calling context
+	private incorporateMultidentate(eq:number[], centre:number, nbr:number[]):void
+	{
+		let g = Graph.fromMolecule(this.dot.mol);
+		g.isolateNode(centre);
+		let cc = g.calculateComponents();
+
+		let ccToBlk = new Map<number, number[]>();
+		for (let i of nbr) if (i >= 0)
+		{
+			let blk = ccToBlk.get(cc[i]);
+			if (blk) blk.push(i); else ccToBlk.set(cc[i], [i]);
+		}
+		let groups:number[][] = [];
+		for (let blk of ccToBlk.values()) if (blk.length > 1) groups.push(blk.map((i) => nbr.indexOf(i)));
+		if (groups.length < 2) return; // no point
+
+		let tags = groups.map((grp) => Vec.sorted(Vec.idxGet(eq, grp)).join(','));
+		let bump = this.dot.mol.numAtoms;
+		for (let i of Vec.idxSort(tags)) if (tags[i])
+		{
+			let idx = [i];
+			for (let j = 0; j < groups.length; j++) if (i != j && tags[i] == tags[j]) idx.push(j);
+			if (idx.length == 1) continue;
+			for (let n of idx)
+			{
+				for (let j of groups[n]) eq[j] += bump;
+				bump *= 2;
+				tags[n] = null;
+			}
+		}
+	}
+
 	// for a 0-based node index, return an array that identifies its current priority sequence
 	private adjacentPriority(idx:number, rubric:number[], perm:number[][]):number[]
 	{
@@ -357,7 +400,6 @@ export class DotHash
 				}
 				else nbrpri.push([0, 0]);
 			}
-//console.log('ADJACENT:atom='+(idx+1)+' rubric='+rubric); //fnord
 			this.sortPermutation(nbrpri, perm);
 			// ???? is this necessary ??
 			//for (let n = 0; n < nbrpri.length; n++) nbrpri[n].unshift(n * 1000 + 1); // nbrpri[n].push(n + 1);
@@ -528,28 +570,11 @@ export class DotHash
 	{
 		const mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
 
-		/*let parity = (nbr:number[], perm:number[][]):string =>
+		let parity = (idx:number, nbr:number[], perm:number[][]):string =>
 		{
 			let adjpri = nbr.map((idx) => idx < 0 ? 0 : this.atomeqv[idx]);
 
-			let bestpri = adjpri;
-			for (let n = 1; n < perm.length; n++)
-			{
-				let permpri = Vec.idxGet(adjpri, perm[n]);
-				for (let i = 0; i < permpri.length; i++)
-				{
-					if (permpri[i] < bestpri[i]) {bestpri = permpri; break;}
-					if (permpri[i] > bestpri[i]) break;
-				}
-			}
-
-			let p = 0;
-			for (let i = 0; i < nbr.length - 1; i++) for (let j = i + 1; j < nbr.length; j++) if (bestpri[i] > bestpri[j]) p++;
-			return (p & 1).toString();
-		};*/
-		let parity = (nbr:number[], perm:number[][]):string =>
-		{
-			let adjpri = nbr.map((idx) => idx < 0 ? 0 : this.atomeqv[idx]);
+			if (idx >= 0 && mol.atomRingBlock(idx + 1) > 0) this.incorporateMultidentate(adjpri, idx, nbr);
 
 			let bestpri = adjpri;
 			for (let n = 1; n < perm.length; n++)
@@ -569,30 +594,23 @@ export class DotHash
 
 		let bits:string[] = [];
 
-//console.log('PRIORITIES:' + this.atompri);
-//console.log('EQUIVS:'+this.atomeqv);
 		// do atoms first
 		let order = Vec.idxSort(this.atompri);
-//console.log('-----COMPOSING----')
 		for (let i of order)
 		{
 			let el = mol.atomElement(i + 1), hc = this.hcount[i], num = this.chgNumer[i], den = this.chgDenom[i];
 
 			let par:string = null;
-//if (this.rubricTetra[i]) console.log('ATOM:'+i+' pri='+this.atompri[i]+' eqv='+this.atomeqv[i]+' adj='+this.g.getEdges(i)+' tetra='+this.rubricTetra[i]);//fnord
 			if (!this.withStereo) {}
-			else if (this.rubricTetra[i]) par = parity(this.rubricTetra[i], Stereochemistry.RUBRIC_EQUIV_TETRA);
-			else if (this.rubricSquare[i]) par = parity(this.rubricSquare[i], Stereochemistry.RUBRIC_EQUIV_SQUARE);
-			else if (this.rubricBipy[i]) par = parity(this.rubricBipy[i], Stereochemistry.RUBRIC_EQUIV_BIPY);
-			else if (this.rubricOcta[i]) par = parity(this.rubricOcta[i], Stereochemistry.RUBRIC_EQUIV_OCTA);
-			else if (this.rubricSides[i]) par = parity(this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);
+			else if (this.rubricTetra[i]) par = parity(-1, this.rubricTetra[i], Stereochemistry.RUBRIC_EQUIV_TETRA);
+			else if (this.rubricSquare[i]) par = parity(i, this.rubricSquare[i], Stereochemistry.RUBRIC_EQUIV_SQUARE);
+			else if (this.rubricBipy[i]) par = parity(i, this.rubricBipy[i], Stereochemistry.RUBRIC_EQUIV_BIPY);
+			else if (this.rubricOcta[i]) par = parity(i, this.rubricOcta[i], Stereochemistry.RUBRIC_EQUIV_OCTA);
+			else if (this.rubricSides[i]) par = parity(-1, this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);
 			let pstr = par == null ? '' : '!' + par;
-//console.log('atom='+(i+1)+'/'+mol.atomElement(i + 1)+' '+JSON.stringify([this.rubricTetra[i], this.rubricSquare[i],
-//	this.rubricBipy[i], this.rubricOcta[i], this.rubricSides[i]])+ ' parity='+par);
 
 			bits.push('[' + el + ',' + hc + ',' + num + '/' + den + pstr + ']');
 		}
-//throw 'fnord'; // zog
 		bits.push(';');
 
 		// bonds next: they need to be sorted
