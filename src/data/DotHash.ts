@@ -56,7 +56,7 @@ export class DotHash
 	// build the hash, and return the calculated value
 	public calculate():string
 	{
-console.log('-----\n'+this.dot.mol);
+//console.log('-----\n'+this.dot.mol);
 
 		this.prepareMolecule();
 		this.seedPriority();
@@ -188,12 +188,6 @@ console.log('-----\n'+this.dot.mol);
 			}
 			this.nbrType.push(b);
 		}
-
-		/*console.log('PRISEQ:');
-		for (let ps of priseq) console.log('    '+JSON.stringify(ps));
-		console.log('PRI:'+JSON.stringify(this.atompri));
-		console.log('NBR/order:'+JSON.stringify(this.nbrType));*/
-
 	}
 
 	// iteratively modify the atom priority array until uniqueness is achieved (by anti-symmetry bumping if necessary)
@@ -270,7 +264,7 @@ console.log('-----\n'+this.dot.mol);
 				for (let i = 0; i < 4; i++)
 				{
 					let nsame = 0;
-					for (let j = 0; j < 4; j++) if (j != i && eq[i] == eq[j]) nsame++;
+					for (let j = 0; j < 4; j++) if (eq[i] == eq[j]) nsame++;
 					if (nsame >= 3)
 					{
 						this.rubricSquare[n] = null;
@@ -309,7 +303,7 @@ console.log('-----\n'+this.dot.mol);
 				for (let i = 0; i < 6; i++)
 				{
 					let nsame = 0;
-					for (let j = 0; j < 6; j++) if (j != i && eq[i] == eq[j]) nsame++;
+					for (let j = 0; j < 6; j++) if (eq[i] == eq[j]) nsame++;
 					if (nsame >= 5)
 					{
 						this.rubricOcta[n] = null;
@@ -458,10 +452,10 @@ console.log('-----\n'+this.dot.mol);
 			}
 
 
-console.log('considering:'+adjpri+'/'+Vec.uniqueUnstable(adjpri));
+//console.log('considering:'+adjpri+'/'+Vec.uniqueUnstable(adjpri));
 			if (Vec.uniqueUnstable(adjpri).length == adj.length) continue; // everything is already different, so move on
 
-console.log('ATOM'+(n+1)+' atomRUBRIC:'+Vec.add(adj, 1));
+//console.log('ATOM'+(n+1)+' atomRUBRIC:'+Vec.add(adj, 1));
 			let extadj:number[][] = null;
 			if (this.rubricSquare[n])
 			{
@@ -574,13 +568,13 @@ console.log('ATOM'+(n+1)+' atomRUBRIC:'+Vec.add(adj, 1));
 				adj = Vec.idxGet(adj, bestPerm);
 				adjpri = Vec.idxGet(adjpri, bestPerm);
 			}
-console.log('    EXTADJ:'+JSON.stringify(extadj));	//fnord
-console.log('    OLDPRI:'+adjpri);
+//console.log('    EXTADJ:'+JSON.stringify(extadj));	//fnord
+//console.log('    OLDPRI:'+adjpri);
 			let newpri = this.assignPriority(extadj);
-console.log('    NEWPRI:'+newpri);
+//console.log('    NEWPRI:'+newpri);
 
 			let idx = Vec.idxSort(Vec.add(adjpri, Vec.mul(newpri, sz)));
-console.log('    SORTED:'+idx+' NEWIDX:'+Vec.idxGet(newpri, idx));
+//console.log('    SORTED:'+idx+' NEWIDX:'+Vec.idxGet(newpri, idx));
 			for (let i = 0; i < idx.length - 1; i++)
 			{
 				let i1 = idx[i], i2 = idx[i + 1];
@@ -588,15 +582,11 @@ console.log('    SORTED:'+idx+' NEWIDX:'+Vec.idxGet(newpri, idx));
 				if (adjpri[i1] != adjpri[i2] /*|| newpri[i1] == newpri[i2]*/) continue;
 
 				let adjI = adj[i1];
-console.log('       i='+i+' idx:'+[i1, i2]+' adjidx:'+adjI+','+adj[i2]);
-				/*let bumpN = idx[i + 1];
-				for (let j = 0; j < sz; n++) if (this.atompri
-				this.atompri[bumpN]*/
-				//this.atompri[idx[i]
-console.log('      atompri_THEN:'+this.atompri);
+//console.log('       i='+i+' idx:'+[i1, i2]+' adjidx:'+adjI+','+adj[i2]);
+//console.log('      atompri_THEN:'+this.atompri);
 				for (let j = 0; j < sz; j++) if (j != adjI && this.atompri[j] >= this.atompri[adjI]) this.atompri[j]++;
-console.log('       atompri_NOW:'+this.atompri);
-console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
+//console.log('       atompri_NOW:'+this.atompri);
+//console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 
 				// priority has been purturbed, so push it around for another overall cycle
 				return;
@@ -892,35 +882,12 @@ console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 				optionEqv.push(perm.map((i) => rubric[i] < 0 ? 0 : atomeqv[rubric[i]]));
 			}
 
-			console.log('FROM:'+(idx+1)+' RUBRIC<atom>:'+Vec.add(rubric, 1));
+			/*console.log('FROM:'+(idx+1)+' RUBRIC<atom>:'+Vec.add(rubric, 1));
 			console.log('ADJ:'+JSON.stringify(optionAdj));
 			console.log('PRI:'+JSON.stringify(optionPri));
-			console.log('EQV:'+JSON.stringify(optionEqv));
+			console.log('EQV:'+JSON.stringify(optionEqv));*/
 
 			let order:number[]; 
-			/*if (this.rubricBipy[idx])
-			{
-				order = [3, 4, 0, 1, 2];
-				let lowpri = Math.min(optionPri[0][3], optionPri[0][4]);
-				for (let n = optionAdj.length - 1; n >= 0; n--) if (optionPri[n][3] != lowpri)
-				{
-					optionAdj.splice(n, 1);
-					optionPri.splice(n, 1);
-					optionEqv.splice(n, 1);
-				}
-			}
-			else
-			{
-				order = Vec.identity0(nsz);
-				let lowpri = Vec.min(optionPri[0]);
-				for (let n = optionAdj.length - 1; n >= 0; n--) if (optionPri[n][0] != lowpri)
-				{
-					optionAdj.splice(n, 1);
-					optionPri.splice(n, 1);
-					optionEqv.splice(n, 1);
-				}
-			}*/
-
 			if (this.rubricBipy[idx])
 				order = [3, 4, 0, 1, 2];
 			else
@@ -934,21 +901,21 @@ console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 			}
 			if (optionAdj.length == 0) return null;
 
-			console.log('ORDER:'+order+' NPERM='+optionAdj.length);
+			/*console.log('ORDER:'+order+' NPERM='+optionAdj.length);
 			console.log('subADJ:'+JSON.stringify(optionAdj));
 			console.log('subPRI:'+JSON.stringify(optionPri));
-			console.log('subEQV:'+JSON.stringify(optionEqv));
+			console.log('subEQV:'+JSON.stringify(optionEqv));*/
 
 			let blkgrp = new Map<number, number>(); // connected component -> group index
 			let ngroups = 0;
-			console.log('BLK:' + blk);
+			//console.log('BLK:' + blk);
 			if (blk[optionAdj[0][order[0]]] > 0) blkgrp.set(blk[optionAdj[0][order[0]]], ++ngroups);
-			console.log('blkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));
+			//console.log('blkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));
 
 			let bestScore:number[];
 			for (let n = 1; n < nsz; n++)
 			{
-	console.log('--- n='+n);		
+	//console.log('--- n='+n);		
 				let bestN = -1, bestNode = -1;
 				for (let i = 0; i < optionAdj.length; i++)
 				{
@@ -960,12 +927,13 @@ console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 	//console.log('        j='+j+' k='+k+' blk='+blk[optionAdj[i][k]] + ' gscore='+gscore);
 						score.push(optionEqv[i][k] + sz * gscore);
 					}
-	console.log('    i='+i+' score='+score);				
+					for (let j = 0; j <= n; j++) score.push(optionPri[i][order[j]]); // in case of a tie, prio kicks in
+	//console.log('    i='+i+' score='+score);				
 					if (bestN < 0 || Vec.compareTo(score, bestScore) < 0) [bestN, bestScore, bestNode] = [i, score, optionAdj[i][order[n]]];
 				}
-	console.log('     bestNode='+bestNode+' blkBest='+blk[bestNode]+' blkgrphas='+blkgrp.has(blk[bestNode])+' ngr='+ngroups);
+	//console.log('     bestNode='+bestNode+' blkBest='+blk[bestNode]+' blkgrphas='+blkgrp.has(blk[bestNode])+' ngr='+ngroups);
 				if (blk[bestNode] > 0 && !blkgrp.has(blk[bestNode])) blkgrp.set(blk[bestNode], ++ngroups);
-	console.log('     zblkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));	
+	//console.log('     zblkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));	
 				for (let i = optionAdj.length - 1; i >= 0; i--) if (optionAdj[i][order[n]] != bestNode)
 				{
 					optionAdj.splice(i, 1);
@@ -974,13 +942,13 @@ console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 				}
 			}
 
-			console.log('outADJ:'+JSON.stringify(optionAdj));
+			/*console.log('outADJ:'+JSON.stringify(optionAdj));
 			console.log('outPRI:'+JSON.stringify(optionPri));
 			console.log('outEQV:'+JSON.stringify(optionEqv));
 
-			console.log('bestScore:'+JSON.stringify(bestScore));
+			console.log('bestScore:'+JSON.stringify(bestScore));*/
 
-			return bestScore;
+			return bestScore.slice(0, nsz);
 		}
 
 		// evaluate all equivalent starting points
@@ -1000,95 +968,26 @@ console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 			for (let n = 0; n < nsz; n++) if (rubric[n] >= 0 && atomeqv[rubric[n]] == loweqv) adjFirst.push(rubric[n]);
 		}
 
-console.log('================= posFirst='+posFirst+' adjFirst='+adjFirst+'======');
+//console.log('================= ATOM='+(idx+1)+' posFirst='+posFirst+' adjFirst='+adjFirst+'======');
 
 		let bestScore:number[] = null;
 		for (let n = 0; n < adjFirst.length; n++)
 		{
-console.log('n='+n+' adjFirst='+adjFirst[n]);		
+//console.log('n='+n+' adjFirst='+adjFirst[n]);		
 			let score = generateParity(posFirst, adjFirst[n]);
 			if (!score) continue;
-console.log('        score='+score);
+//console.log('        score='+score);
 			if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
 		}
-console.log('BEST:'+bestScore);
-/*/*if (this.rubricBipy[idx])
-			{
-				order = [3, 4, 0, 1, 2];
-				let lowpri = Math.min(optionPri[0][3], optionPri[0][4]);
-				for (let n = optionAdj.length - 1; n >= 0; n--) if (optionPri[n][3] != lowpri)
-				{
-					optionAdj.splice(n, 1);
-					optionPri.splice(n, 1);
-					optionEqv.splice(n, 1);
-				}
-			}
-			else
-			{
-				order = Vec.identity0(nsz);
-				let lowpri = Vec.min(optionPri[0]);
-				for (let n = optionAdj.length - 1; n >= 0; n--) if (optionPri[n][0] != lowpri)
-				{
-					optionAdj.splice(n, 1);
-					optionPri.splice(n, 1);
-					optionEqv.splice(n, 1);
-				}
-			}*/
-
+//console.log('BEST:'+bestScore);
 
 		let parity = Vec.idxSort(bestScore);
-		console.log('parity:'+parity);
+		//console.log('parity:'+parity);
 		//return parity;
 
 		//throw 'fnord';
 
 		return parity.toString();
-
-		/*
-		let adjpri = rubric.map((i) => rubric[i] < 0 ? 0 : this.atompri[rubric[i]]);
-		let adjeqv = rubric.map((i) => rubric[i] < 0 ? 0 : this.atomeqv[rubric[i]]);
-
-		// decide which neighbour to start with: normally just the lowest priority goes first, unless it's a lower symmetry configuration
-		let pmap = Vec.numberArray(-1, nsz);
-		if (this.rubricBipy[idx])
-		{
-			// pick one of the two axial positions
-			if (adjpri[3] < adjpri[4])
-				pmap[3] = 
-			first = adjpri[3] < adjpri[4] ? 3 : 4;
-		}
-		else
-		{
-			for (let n = 0; n < nsz; n++) if (first < 0 || adjpri[n] < adjpri[first]) first = n;
-			perms = perms.filter((perm) => perm[0] == first);
-		}
-*/
-
-		//let nbrOrder:number[] = [first];
-		//perms = perms.filter((perm) => perm[0] == first);
-
-/*		let parity = (idx:number, nbr:number[], perm:number[][]):string =>
-		{
-			let adjpri = nbr.map((idx) => idx < 0 ? 0 : this.atomeqv[idx]);
-			//let adjpri = nbr.map((idx) => idx < 0 ? 0 : this.atompri[idx]);
-
-//console.log('atom='+(idx+1)+' adj='+adjpri+' alt='+nbr.map((idx) => idx < 0 ? 0 : this.atompri[idx])); // fnord
-			//if (idx >= 0 && mol.atomRingBlock(idx + 1) > 0) this.incorporateMultidentate(adjpri, idx, nbr);
-//console.log('  mult:'+adjpri);
-
-			let bestpri = adjpri;
-			for (let n = 1; n < perm.length; n++)
-			{
-				let permpri = Vec.idxGet(adjpri, perm[n]);
-				if (Vec.compareTo(permpri, bestpri) < 0) bestpri = permpri;
-			}
-
-			// NOTE: returning the full parity array, sorted; most of the stereo types can be reduced to one bit of information; bipy & octa are a bit
-			// more interesting though
-			return Vec.idxSort(bestpri).toString();
-			//return bestpri.toString();
-		};*/
-
 	}
 }
 

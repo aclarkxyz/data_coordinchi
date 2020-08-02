@@ -381,7 +381,7 @@ export class EquivalenceResults
 		mol = mol.clone();
 		mol.keepTransient = true; // have some that we want to keep
 
-		/*for (let count = 20, n = 0; count > 0; count--, n++)
+		for (let count = 20, n = 0; count > 0; count--, n++)
 		{
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
 			mol.swapAtoms(a1, a2);
@@ -395,8 +395,8 @@ export class EquivalenceResults
 				console.log('Permuted Molecule:\n' + mol);
 				throw 'Dot hashes differ';
 			}
-		}*/
-		console.log('!! SKIPPERM');
+		}
+		//console.log('!! SKIP PERM');
 	}
 
 	// shorthand for creating a card object
