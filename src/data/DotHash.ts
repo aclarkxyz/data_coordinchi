@@ -81,26 +81,44 @@ export class DotHash
 		let pathMask = Vec.booleanArray(false, mol.numAtoms);
 		for (let pblk of this.dot.paths) for (let a of pblk.atoms) pathMask[a - 1] = true;
 
-		let keepMask = Vec.booleanArray(true, mol.numAtoms);
+		let meta:MetaMolecule = null;
+		if (this.withStereo) meta = MetaMolecule.createRubric(mol);
+
+		let atomMask = Vec.booleanArray(true, mol.numAtoms), bondMask = Vec.booleanArray(true, mol.numBonds);
 		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.unwantedHydrogen(mol, n))
 		{
 			this.hcount[mol.atomAdjList(n)[0] - 1]++;
-			keepMask[n - 1] = false;
+			atomMask[n - 1] = false;
+			bondMask[mol.atomAdjBonds(n)[0] - 1] = false;
 		}
-		if (Vec.anyFalse(keepMask))
+		if (Vec.anyFalse(atomMask))
 		{
 			mol = mol.clone();
 			for (let n = 1; n <= na; n++) mol.setAtomHExplicit(n, this.hcount[n - 1]);
 
-			mol = MolUtil.subgraphMask(mol, keepMask);
-			this.hcount = Vec.maskGet(this.hcount, keepMask);
+			mol = MolUtil.subgraphMask(mol, atomMask);
+			this.hcount = Vec.maskGet(this.hcount, atomMask);
 			this.dot = new DotPath(mol);
+
+			// update the stereo-rubric too
+			if (meta)
+			{
+				if (meta.rubricTetra) meta.rubricTetra = Vec.maskGet(meta.rubricTetra, atomMask);
+				if (meta.rubricSquare) meta.rubricSquare = Vec.maskGet(meta.rubricSquare, atomMask);
+				if (meta.rubricBipy) meta.rubricBipy = Vec.maskGet(meta.rubricBipy, atomMask);
+				if (meta.rubricOcta) meta.rubricOcta = Vec.maskGet(meta.rubricOcta, atomMask);
+				if (meta.rubricSides) meta.rubricSides = Vec.maskGet(meta.rubricSides, bondMask);
+
+				let atomMap = Vec.prepend(Vec.add(Vec.maskMap(atomMask), 1), 0);
+				for (let n = 0; n < Vec.arrayLength(meta.rubricTetra); n++) if (meta.rubricTetra[n]) meta.rubricTetra[n] = Vec.idxGet(atomMap, meta.rubricTetra[n]);
+				for (let n = 0; n < Vec.arrayLength(meta.rubricSquare); n++) if (meta.rubricSquare[n]) meta.rubricSquare[n] = Vec.idxGet(atomMap, meta.rubricSquare[n]);
+				for (let n = 0; n < Vec.arrayLength(meta.rubricOcta); n++) if (meta.rubricOcta[n]) meta.rubricOcta[n] = Vec.idxGet(atomMap, meta.rubricOcta[n]);
+				for (let n = 0; n < Vec.arrayLength(meta.rubricSides); n++) if (meta.rubricSides[n]) meta.rubricSides[n] = Vec.idxGet(atomMap, meta.rubricSides[n]);
+			}
 		}
 
 		if (this.withStereo)
 		{
-			let meta = MetaMolecule.createRubric(mol);
-
 			this.rubricTetra = Vec.anyArray(null, na);
 			this.rubricSquare = Vec.anyArray(null, na);
 			this.rubricBipy = Vec.anyArray(null, na);
