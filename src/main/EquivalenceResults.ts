@@ -67,7 +67,7 @@ export class EquivalenceResults
 	private divContent:JQuery;
 	private tableContent:JQuery;
 	private tableRows:JQuery[] = [];
-	
+
 	private numPassed = 0;
 	private numFailed = 0;
 	private rowsFailed:number[] = [];
@@ -138,11 +138,11 @@ export class EquivalenceResults
 
 		for (let n = 0; n < this.ds.numRows; n++)
 		{
-			let eqr:EquivalenceRow = 
+			let eqr:EquivalenceRow =
 			{
-				'molList': [], 
-				'molExpanded': [], 
-				'inchiList': [], 
+				'molList': [],
+				'molExpanded': [],
+				'inchiList': [],
 				'dhashList': [],
 				'diffList': [],
 				'diffExpanded': [],
@@ -155,7 +155,7 @@ export class EquivalenceResults
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
 				let molExpanded = mol.clone();
 				MolUtil.expandAbbrevs(molExpanded, true);
-				
+
 				// temporary bandaid: take the CSD-imported aromatic bond type and turn it into the "foreign" designation, which is used by dotpath
 				for (let b = 1; b <= molExpanded.numBonds; b++) if (molExpanded.bondExtra(b).indexOf('xAromatic') >= 0)
 				{
@@ -277,7 +277,7 @@ export class EquivalenceResults
 				let mol1 = eqr.molList[i], mol2 = eqr.molList[j];
 				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = eqr.molExpanded[j];
 				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
-				
+
 				let dualCard = $('<div/>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
@@ -305,7 +305,7 @@ export class EquivalenceResults
 				let mol1 = eqr.molList[0], mol2 = eqr.diffList[n];
 				let molExpanded1 = eqr.molExpanded[0], molExpanded2 = eqr.diffExpanded[n];
 				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
-				
+
 				let dualCard = $('<div/>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
@@ -337,7 +337,7 @@ export class EquivalenceResults
 				let mol1 = eqr.molList[i], mol2 = other.molList[j];
 				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = other.molExpanded[j];
 				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
-				
+
 				let dualCard = $('<div/>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800080'});
@@ -358,7 +358,7 @@ export class EquivalenceResults
 		// by default add the row, unless the user has asked to skip failures
 		if (hasProblem || !this.opt.failOnly) this.tableContent.append(tr);
 
-		if (hasProblem) 
+		if (hasProblem)
 		{
 			this.numFailed++;
 			this.rowsFailed.push(row);
@@ -386,7 +386,7 @@ export class EquivalenceResults
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
 			mol.swapAtoms(a1, a2);
 			let phash = new DotHash(new DotPath(mol), this.opt.stereochemistry).calculate();
-			if (dhash != phash) 
+			if (dhash != phash)
 			{
 				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
 				console.log('ORIGINAL:' + dhash);
@@ -434,18 +434,18 @@ export class EquivalenceResults
 		let bits:string[] = [];
 		let meta = MetaMolecule.createRubric(mol);
 
-		for (let n = 1; n <= mol.numAtoms; n++) 
+		for (let n = 1; n <= mol.numAtoms; n++)
 		{
 			if (meta.rubricTetra[n - 1]) bits.push(`[T${n}:${meta.rubricTetra[n - 1]}]`);
 			else if (meta.rubricSquare[n - 1]) bits.push(`[P${n}:${meta.rubricSquare[n - 1]}]`);
 			else if (meta.rubricBipy[n - 1]) bits.push(`[B${n}:${meta.rubricBipy[n - 1]}]`);
 			else if (meta.rubricOcta[n - 1]) bits.push(`[O${n}:${meta.rubricOcta[n - 1]}]`);
 		}
-		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1] && !mol.bondInRing(n)) 
+		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1] && !mol.bondInRing(n))
 		{
 			bits.push(`[S${n}:${meta.rubricSides[n - 1]}]`);
 		}
-		
+
 		return bits.join(';');
 	}
 }
