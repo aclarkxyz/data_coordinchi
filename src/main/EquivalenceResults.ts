@@ -176,7 +176,7 @@ export class EquivalenceResults
 			{
 				let mol = this.ds.getMolecule(n, this.colDiff[i]);
 				let molExpanded = mol.clone();
-				MolUtil.expandAbbrevs(molExpanded, false);
+				MolUtil.expandAbbrevs(molExpanded, true);
 
 				eqr.diffList.push(mol);
 				eqr.diffExpanded.push(molExpanded);
@@ -299,7 +299,7 @@ export class EquivalenceResults
 		{
 			let inchi1 = eqr.inchiList[0], inchi2 = eqr.diffInChI[n];
 			let dhash1 = eqr.dhashList[0], dhash2 = eqr.diffDHash[n];
-			let badInChI = inchi1 && inchi2 && inchi1 == inchi2, badHash = dhash1 == dhash2
+			let badInChI = inchi1 && inchi2 && inchi1 == inchi2, badHash = dhash1 == dhash2;
 			if (badInChI || badHash)
 			{
 				let mol1 = eqr.molList[0], mol2 = eqr.diffList[n];
@@ -366,8 +366,6 @@ export class EquivalenceResults
 		else this.numPassed++;
 		this.updateStats();
 
-//console.log('!!');
-//return;
 		setTimeout(() => this.processRow(row + 1), 1);
 	}
 

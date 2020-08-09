@@ -18,6 +18,7 @@
 
 ///<reference path='../data/AnalyseMolecule.ts'/>
 ///<reference path='../data/CallInChI.ts'/>
+///<reference path='../data/ExportContent.ts'/>
 ///<reference path='WindowPanel.ts'/>
 ///<reference path='AnalyzeResults.ts'/>
 ///<reference path='EquivalenceResults.ts'/>
@@ -49,6 +50,7 @@ export class CoordPanel extends WindowPanel
 	private btnRun:JQuery;
 	private btnCancel:JQuery;
 	private btnDraw:JQuery;
+	private btnExport:JQuery;
 
 	// current task
 	private filename:string = null;
@@ -203,9 +205,13 @@ export class CoordPanel extends WindowPanel
 		this.btnDraw = $('<button class="wmk-button wmk-button-primary">Draw</button>').appendTo(divRun).css({'margin': '0.5em 0.5em 0.5em 1.5em'});
 		this.btnDraw.click(() => this.drawStructure());
 
+		this.btnExport = $('<button class="wmk-button wmk-button-default">Export</button>').appendTo(divRun).css({'margin': '0.5em 0.5em 0.5em 1.5em'});
+		this.btnExport.click(() => this.exportContent());
+
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 		this.btnDraw.prop('disabled', false);
+		this.btnExport.prop('disabled', false);
 
 		this.inputFile.focus();
 	}
@@ -242,6 +248,7 @@ export class CoordPanel extends WindowPanel
 		this.btnRun.prop('disabled', true);
 		this.btnCancel.prop('disabled', false);
 		this.btnDraw.prop('disabled', true);
+		this.btnExport.prop('disabled', true);
 
 		setTimeout(() =>
 		{
@@ -257,7 +264,6 @@ export class CoordPanel extends WindowPanel
 				'endAt': parseInt(this.inputEndAt.val().toString()),
 			};
 			this.task = new EquivalenceResults(this.ds, this.callInChI, opt, () => this.finishedResults());
-	
 			this.task.render(areaSummary, areaResults);
 			// TODO: fold AnalyseMolecule features into this 
 		}, 1);
@@ -271,6 +277,7 @@ export class CoordPanel extends WindowPanel
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
 		this.btnDraw.prop('disabled', false);
+		this.btnExport.prop('disabled', false);
 	}
 
 	// give the user a chance to draw a molecule
@@ -282,6 +289,31 @@ export class CoordPanel extends WindowPanel
 			this.custom.render(this.divCustom);
 		}
 		this.custom.sketchNew();
+	}
+
+	// write the file to SDfile for use in other environments
+	private exportContent():void
+	{
+		this.loadFile();
+		if (!this.ds) return;
+
+		this.btnRun.prop('disabled', true);
+		this.btnCancel.prop('disabled', false);
+		this.btnDraw.prop('disabled', true);
+		this.btnExport.prop('disabled', true);
+
+		let sdFN = this.filename;
+		let dot = sdFN.lastIndexOf('.');
+		if (dot >= 0) sdFN = sdFN.substring(0, dot);
+		sdFN += '.sdf';
+
+		let stereochemistry = this.chkStereo.prop('checked');
+		new ExportContent(this.ds, sdFN, stereochemistry).perform();
+
+		this.btnRun.prop('disabled', false);
+		this.btnCancel.prop('disabled', true);
+		this.btnDraw.prop('disabled', false);
+		this.btnExport.prop('disabled', false);
 	}
 
 	// obtains the file contents, and sets this.ds if successful
@@ -304,6 +336,8 @@ export class CoordPanel extends WindowPanel
 	{
 		this.btnRun.prop('disabled', false);
 		this.btnCancel.prop('disabled', true);
+		this.btnDraw.prop('disabled', false);
+		this.btnExport.prop('disabled', false);
 
 		let paraSave = $('<p/>').appendTo(this.divSummary);
 		paraSave.css({'text-align': 'center'});

@@ -61,7 +61,7 @@ export class CallInChI
 			this.listener = (inchi:string) =>
 			{
 				inchiList.push(inchi);
-				if (inchiList.length == molList.length) 
+				if (inchiList.length == molList.length)
 				{
 					this.process = null;
 					resolve(inchiList);
@@ -71,8 +71,11 @@ export class CallInChI
 			{
 				let feed = mol.clone();
 				MolUtil.expandAbbrevs(feed, false);
-				MolUtil.createHydrogens(feed, true);		
-				let mdl = new MDLMOLWriter(feed).write();
+				MolUtil.createHydrogens(feed, true);
+				for (let n = 1; n <= feed.numBonds; n++) if (feed.bondOrder(n) == 0) feed.setBondOrder(n, 1);
+				let wtr = new MDLMOLWriter(feed);
+				wtr.enhancedFields = false;
+				let mdl = wtr.write();
 				this.process.stdin.write(mdl + '\n$$$$\n');
 			}
 			this.process.stdin.end();
