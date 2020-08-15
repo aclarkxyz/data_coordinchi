@@ -23,13 +23,20 @@ namespace WebMolKit /* BOF */ {
 	it together into a hashed string with InChI-esque characteristics.
 */
 
+const BONDTYPE_MAP:[DotPathBond, string][] = 
+[
+	[DotPathBond.O0, '*'], [DotPathBond.O01, '*-'], [DotPathBond.O1, '-'], [DotPathBond.O12, '-='],
+	[DotPathBond.O2, '='], [DotPathBond.O23, '=#'], [DotPathBond.O3, '#'], [DotPathBond.O3X, '#+']
+];
+const BONDTYPE_TEXT = new Map<DotPathBond, string>(BONDTYPE_MAP);
+
 export class DotCompose
 {
 	public rubricTetra:number[][] = null;
 	public rubricSquare:number[][] = null;
 	public rubricBipy:number[][] = null;
 	public rubricOcta:number[][] = null;
-	public rubricSides:number[][] = null;
+	public rubricSides:number[][] = null;	
 
 	// ------------ public methods ------------
 
@@ -42,12 +49,30 @@ export class DotCompose
 	public compose():string
 	{
 		const mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
+		const {bondType} = this;
 
 		let bits:string[] = [];
 
 		// do atoms first
+		let atomLabel:string[] = [];
+		for (let n = 0; n <na; n++)
+		{
+			let label = mol.atomElement(n + 1);
+			if (this.hcount[n] > 0) label += 'H';
+			if (this.hcount[n] > 1) label += this.hcount[n];
+			if (this.chgNumer[n] > 0)
+			{
+				label += '+' + this.chgNumer[n];
+				if (this.chgDenom[n] != 1) label += '/' + this.chgDenom[n];
+			}
+			let par = this.parityString(n);
+			if (par) label += '!' + par;
+
+			atomLabel.push(label);
+		}
+
 		let order = Vec.idxSort(this.atompri);
-		for (let i of order)
+		/*for (let i of order)
 		{
 			let el = mol.atomElement(i + 1), hc = this.hcount[i], num = this.chgNumer[i], den = this.chgDenom[i];
 			let par = this.parityString(i);
@@ -55,12 +80,29 @@ export class DotCompose
 
 			bits.push('[' + el + ',' + hc + ',' + num + '/' + den + pstr + ']');
 		}
+		for (let i of order) bits.push(atomLabel[i]);
+		bits.push(';');*/
+
+		for (let n = 0; n < order.length;)
+		{
+			if (bits.length > 0) bits.push(',');
+
+			let blk = 1;
+			for (; n + blk < order.length; blk++) if (atomLabel[order[n]] != atomLabel[order[n + blk]]) break;
+
+			if (blk > 1) bits.push(blk + '*');
+			bits.push(atomLabel[order[n]]);
+
+			n += blk;
+		}
+
 		bits.push(';');
 
 		// bonds next: they need to be sorted
-		let backMap = Vec.numberArray(0, na);
-		for (let n = 0; n < na; n++) backMap[order[n]] = n;
-		let bondseq:number[][] = [];
+		let backMap = Vec.numberArray(0, na); // graph index (0-based) to the ordered output atoms (1-based)
+		for (let n = 0; n < na; n++) backMap[order[n]] = n + 1;
+		
+		/*let bondseq:number[][] = [];
 		for (let n = 1; n <= nb; n++)
 		{
 			let a1 = backMap[mol.bondFrom(n) - 1] + 1;
@@ -69,7 +111,21 @@ export class DotCompose
 			bondseq.push([a1, a2, this.bondType[n - 1]]);
 		}
 		this.sortSequences(bondseq);
-		for (let bs of bondseq) bits.push('[' + bs[0] + ':' + bs[1] + '=' + bs[2] + ']');
+		for (let bs of bondseq) bits.push('[' + bs[0] + ':' + bs[1] + '=' + bs[2] + ']');*/
+
+		let walkPaths = this.getWalkPaths();
+		for (let n = 0; n < walkPaths.length; n++)
+		{
+			if (n > 0) bits.push(',');
+			let path = walkPaths[n];
+			bits.push(backMap[path[0] - 1].toString());
+			for (let i = 1; i < path.length; i += 2)
+			{
+				let bond = path[i], atom = path[i + 1];
+				bits.push(BONDTYPE_TEXT.get(bondType[bond - 1]));
+				bits.push(backMap[atom - 1].toString());
+			}
+		}
 
 		return bits.join('');
 	}
@@ -204,7 +260,7 @@ export class DotCompose
 			// indicating the order of the remaining substituents
 			let invpar = [0, 0, 0, 0, 0];
 			for (let n = 0; n < 5; n++) invpar[parity[n]] = n;
-			return [invpar[3], invpar[4], Permutation.parityOrder([invpar[0], invpar[1], invpar[2]])].toString();
+			return [invpar[3], invpar[4], Permutation.parityOrder([invpar[0], invpar[1], invpar[2]])].join('');
 		}
 		else if (this.rubricOcta[idx])
 		{
@@ -212,7 +268,7 @@ export class DotCompose
 			// indicating the order of the remaining substituents
 			let invpar = [0, 0, 0, 0, 0, 0];
 			for (let n = 0; n < 6; n++) invpar[parity[n]] = n;
-			return [invpar[4], invpar[5], Permutation.parityOrder([invpar[0], invpar[1], invpar[2], invpar[3]])].toString();
+			return [invpar[4], invpar[5], Permutation.parityOrder([invpar[0], invpar[1], invpar[2], invpar[3]])].join('');
 		}
 
 		// NOTE: converting the parity array into a string works for all cases, but it includes more information than is necessary to
@@ -223,7 +279,7 @@ export class DotCompose
 	}
 
 	// sort in place: the array-of-arrays is sorted by lowest values first; does not assume that all elements are the same length
-	private sortSequences(priseq:number[][]):void
+	/*private sortSequences(priseq:number[][]):void
 	{
 		priseq.sort((seq1, seq2):number =>
 		{
@@ -236,8 +292,95 @@ export class DotCompose
 			}
 			return 0;
 		});
-	}
+	}*/
 
+	// traverses the structure to generate some number of paths that traverses all of the bonds, in a canonical order, that tries to minimise
+	// the number of paths required; the form of each path is [a1, b12, a2, b23, a3, ...] whereby each starts & ends with an atom (size = odd)
+	private getWalkPaths():number[][]
+	{
+		const {atompri, bondType} = this;
+		const {mol} = this.dot;
+		const na = mol.numAtoms, nb = mol.numBonds;
+
+		let bmask = Vec.booleanArray(false, nb); // set to true as each bond is visited and wrapped into a path
+		let nbrList:number[][] = []; // zero-based atom adjacency which gets disconnected each time a bond is traversed
+		for (let n = 1; n <= na; n++) nbrList.push(Vec.add(mol.atomAdjList(n), -1));
+
+		// selects the next best atom for lowest walk path (0-based; -1 means it's all finished)
+		let pickSeed = ():number =>
+		{
+			let nodes = Vec.identity0(na);
+
+			// consider only atoms with at least one remaining adjacency
+			nodes = nodes.filter((i) => nbrList[i].length > 0);
+			if (nodes.length == 0) return -1; // the job is done
+
+			// if any of these atoms is already part of a path, exclude all those which are not
+			let usedMask = nodes.map((i) => nbrList[i].length < mol.atomAdjCount(i + 1));
+			if (Vec.anyTrue(usedMask)) nodes = Vec.maskGet(nodes, usedMask);
+
+			// find the minimum remaining adjacency count and limit to that
+			let minadj = Vec.min(nodes.map((i) => nbrList[i].length));
+			nodes = nodes.filter((i) => nbrList[i].length == minadj);
+
+			// (could consider counting up the connected component size for each option and picking highest?)
+
+			// of these remaining atoms, select the one with the lowest priority
+			let lowidx = 0, lowpri = Number.POSITIVE_INFINITY;
+			for (let i of nodes) if (atompri[i] < lowpri) [lowidx, lowpri] = [i, atompri[i]];
+			return lowidx;
+		};
+
+		// considering the as-yet-unassigned bonds, and minus the current reference node, figures out how big the remaining connected
+		// components are, which can bias the walk choices
+		let compSize = (withoutAtom:number):number[] =>
+		{
+			let g = Graph.fromNeighbours(nbrList).clone();
+			g.isolateNode(withoutAtom);
+			let counts = Vec.numberArray(0, na);
+			for (let cc of g.calculateComponentGroups()) for (let i of cc) counts[i] = cc.length;
+			return counts;
+		};
+
+		let walkPaths:number[][] = [];
+
+		for (let seed = pickSeed(); seed >= 0; seed = pickSeed())
+		{
+			let path = [seed]; // array is 0-based indexes while working on it, incremented to 1-based when it gets stashed
+
+			while (true)
+			{
+				let head = Vec.last(path);
+				let nbrs = nbrList[head];
+				if (nbrs.length == 0) break;
+
+				let next = nbrs[0];
+				if (nbrs.length > 1)
+				{
+					// limit the available options to those which form the largest connected component
+					let cmpsz = compSize(head);
+					let maxsz = Vec.max(nbrs.map((i) => cmpsz[i]));
+					nbrs = nbrs.filter((i) => cmpsz[i] == maxsz);
+					next = nbrs[0];
+					for (let n = 1; n < nbrs.length; n++) if (atompri[nbrs[n]] < atompri[next]) next = nbrs[n];
+				}
+
+				let bidx = mol.findBond(head + 1, next + 1) - 1;
+				path.push(bidx);
+				path.push(next);
+
+				bmask[bidx] = true;
+				nbrList[head] = nbrList[head].filter((i) => i != next);
+				nbrList[next] = nbrList[next].filter((i) => i != head);
+			}
+
+			walkPaths.push(Vec.add(path, 1));
+		}
+
+		if (Vec.anyFalse(bmask)) throw 'Epic fail: ' + bmask;
+
+		return walkPaths;
+	}
 }
 
 /* EOF */ }
