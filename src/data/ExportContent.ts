@@ -62,7 +62,7 @@ export class ExportContent
 				let outRow = outDS.appendRow();
 				outDS.setMolecule(outRow, outMol, mol);
 				outDS.setInteger(outRow, outGroup, grp);
-			}			
+			}
 		};
 
 		let grp = 0;
@@ -157,7 +157,7 @@ export class ExportContent
 			}
 
 			return true;
-		};		
+		};
 
 		if (!compareMols(mol, outmol))
 		{
@@ -181,7 +181,7 @@ export class ExportContent
 			throw 'Read/write molfile failed, dothashes different: ' + src;
 		}
 	}
-	
+
 	// final run-down before emitting the data: same hash iff same hash
 	private verifyAllHashes(ds:DataSheet):void
 	{
@@ -190,7 +190,7 @@ export class ExportContent
 
 		let molecules:Molecule[] = [], hashes:string[] = [];
 		let sz = ds.numRows;
-		for (let n = 0; n < sz; n++) 
+		for (let n = 0; n < sz; n++)
 		{
 			let mol = ds.getMoleculeClone(n, colMol);
 			MolUtil.expandAbbrevs(mol, true);

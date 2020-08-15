@@ -13,8 +13,7 @@
 ///<reference path='../../../WebMolKit/src/data/Stereochemistry.ts'/>
 ///<reference path='../../../WebMolKit/src/data/DotPath.ts'/>
 
-///<reference path='../decl/node.d.ts'/>
-///<reference path='../decl/electron.d.ts'/>
+///<reference path='DotCompose.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -31,11 +30,11 @@ export class DotHash
 	public hash:string = null;
 
 	private hcount:number[] = []; // # of implicit/explicit hydrogens (excluding actual hydrogens which have their own graph node)
+	private chgNumer:number[]; // numerator for charges, divvied up into paths
+	private chgDenom:number[]; // denominator of above
 
 	private atompri:number[]; // priority per-atom, which is resolved iteratively; final result: same priority value = completely identical
 	private atomeqv:number[] = null; // atom equivalence: this is initially the same as atom priority, until "bumping" starts to disambiguate
-	private chgNumer:number[]; // numerator for charges, divvied up into paths
-	private chgDenom:number[]; // denominator of above
 	private g:Graph; // neighbour-list
 	private bondType:number[] = []; // bond-list analog: holds the dot-bond order
 	private nbrType:number[][] = []; // neighbour-list analog: holds the dot-bond order
@@ -56,13 +55,20 @@ export class DotHash
 	// build the hash, and return the calculated value
 	public calculate():string
 	{
-//console.log('-----\n'+this.dot.mol);
-
 		this.prepareMolecule();
 		this.seedPriority();
 		this.refinePriorities();
-		this.composeHash();
-//throw 'fnord';
+
+		let dotcomp = new DotCompose(this.dot, this.hcount, this.chgNumer, this.chgDenom, this.bondType, this.atompri, this.atomeqv);
+		if (this.withStereo)
+		{
+			dotcomp.rubricTetra = this.rubricTetra;
+			dotcomp.rubricSquare = this.rubricSquare;
+			dotcomp.rubricBipy = this.rubricBipy;
+			dotcomp.rubricOcta = this.rubricOcta;
+			dotcomp.rubricSides = this.rubricSides;
+		}
+		this.hash = dotcomp.compose();
 		return this.hash;
 	}
 
@@ -143,8 +149,8 @@ export class DotHash
 		}
 	}
 
-	// similar to the boringHydrogen method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also allowed to
-	// snip hydrogens bonded to exotic elements
+	// similar to the boringHydrogen method in MolUtil, except that it allows the elimination of stereoactive hydrogens; these are re-checked later; also disallowed from
+	// snipping hydrogens bonded to exotic elements
 	private unwantedHydrogen(mol:Molecule, atom:number):boolean
 	{
 		if (mol.atomElement(atom) != 'H') return false;
@@ -214,10 +220,6 @@ export class DotHash
 		const sz = this.atompri.length;
 		while (true)
 		{
-			//let bits:string[] = [];
-			//for (let n = 0; n < this.atompri.length; n++) bits.push(this.dot.mol.atomElement(n + 1) + ':' + this.atompri[n]);
-			//console.log('ITER:'+JSON.stringify(bits));
-
 			let adjpri:number[][] = [];
 			for (let n = 0; n < sz; n++)
 			{
@@ -242,9 +244,7 @@ export class DotHash
 			// have to bump one of the priorities then let it percolate
 			if (!this.atomeqv) this.defineEquivalents();
 
-//console.log('---PREBUMP:'+this.atompri);
 			this.bumpPriority();
-//console.log('---POSTBUMP:'+this.atompri);
 		}
 
 		if (!this.atomeqv) this.defineEquivalents();
@@ -346,29 +346,6 @@ export class DotHash
 	{
 		let pri:number[] = [];
 		for (let n of nbr) pri.push(n < 0 ? 0 : this.atomeqv[n]);
-
-/* (necessary?)
-		const sz = nbr.length;
-		let nsame = 0;
-		for (let i = 0; i < sz - 1; i++) for (let j = i + 1; j < sz; j++) if (pri[i] == pri[j]) nsame++;
-		if (nsame == 0) return pri; // they're all already different, no need to do any further analysis
-
-		// examine each group
-		let umask = Vec.booleanArray(false, sz);
-		for (let i = 0; i < sz; i++) if (!umask[i])
-		{
-			let grp:number[] = [i];
-			for (let j = i + 1; j < sz; j++) if (pri[j] == pri[j])
-			{
-				grp.push(j);
-				umask[j] = true;
-			}
-		}
-
-		// !! if they're all already different, stop
-		// !! any group of same value, and not terminal, do a long walk out to see if they are really the same...
-*/
-
 		return pri;
 	}
 
@@ -430,8 +407,6 @@ export class DotHash
 				else nbrpri.push([0, 0]);
 			}
 			this.sortPermutation(nbrpri, perm);
-			// ???? is this necessary ??
-			//for (let n = 0; n < nbrpri.length; n++) nbrpri[n].unshift(n * 1000 + 1); // nbrpri[n].push(n + 1);
 		}
 
 		// NOTE: this would be where to insert the atom-centred stereochemistry constraint, to enforce an ordering
@@ -469,20 +444,11 @@ export class DotHash
 				if (Vec.compareTo(lookpri, adjpri) < 0) [adj, adjpri] = [lookadj, lookpri];
 			}
 
-
-//console.log('considering:'+adjpri+'/'+Vec.uniqueUnstable(adjpri));
 			if (Vec.uniqueUnstable(adjpri).length == adj.length) continue; // everything is already different, so move on
 
-//console.log('ATOM'+(n+1)+' atomRUBRIC:'+Vec.add(adj, 1));
 			let extadj:number[][] = null;
 			if (this.rubricSquare[n])
 			{
-				/*for (let i = 0; i < 4; i++)
-				{
-					let p1 = adjpri[i], p2 = adjpri[(i + 1) % 4], p3 = adjpri[(i + 2) % 4], p4 = adjpri[(i + 3) % 4];
-					extadj.push([p1, Math.min(p2, p4), p3, Math.max(p2, p4)]);
-				}*/
-
 				let bestPerm:number[] = null;
 				for (let perm of Stereochemistry.RUBRIC_EQUIV_SQUARE)
 				{
@@ -501,32 +467,6 @@ export class DotHash
 			}
 			else if (this.rubricBipy[n])
 			{
-				/*let p1 = adjpri[0], p2 = adjpri[1], p3 = adjpri[2], p4 = adjpri[3], p5 = adjpri[4];
-				extadj =
-				[
-					[p1, p2, p3, p4, p5],
-					[p2, p3, p1, p4, p5],
-					[p3, p1, p2, p4, p5],
-					[p4, p5, p1, p2, p3],
-					[p5, p4, p3, p2, p1],
-				];
-				const ROTEQUAT = [0, 2, 1, 4, 3];
-				const ROTAXIAL = [[0, 1, 3, 4, 2], [0, 1, 4, 2, 3]];
-				for (let i = 0; i < 3; i++)
-				{
-					let lookext = Vec.idxGet(extadj[i], ROTEQUAT);
-					if (Vec.compareTo(lookext, extadj[i]) < 0) extadj[i] = lookext;
-				}
-				for (let i = 3; i < 5; i++)
-				{
-					let baseext = extadj[i];
-					for (let perm of ROTAXIAL)
-					{
-						let lookext = Vec.idxGet(baseext, perm);
-						if (Vec.compareTo(lookext, extadj[i]) < 0) extadj[i] = lookext;
-					}
-				}*/
-
 				let bestPerm:number[] = null;
 				for (let perm of Stereochemistry.RUBRIC_EQUIV_BIPY)
 				{
@@ -546,28 +486,6 @@ export class DotHash
 			}
 			else if (this.rubricOcta[n])
 			{
-				/*
-				let p1 = adjpri[0], p2 = adjpri[1], p3 = adjpri[2], p4 = adjpri[3], p5 = adjpri[4], p6 = adjpri[5];
-				extadj =
-				[
-					[p1, p2, p3, p4, p5, p6],
-					[p2, p3, p4, p1, p5, p6],
-					[p3, p4, p1, p2, p5, p6],
-					[p4, p1, p2, p3, p5, p6],
-					[p5, p1, p6, p3, p2, p4],
-					[p6, p1, p5, p3, p4, p2],
-				];
-				const ROTATIONS = [[0, 3, 2, 1, 5, 4], [0, 4, 2, 5, 3, 1], [0, 5, 2, 4, 1, 3]];
-				for (let i = 0; i < 6; i++)
-				{
-					let baseext = extadj[i];
-					for (let perm of ROTATIONS)
-					{
-						let lookext = Vec.idxGet(baseext, perm);
-						if (Vec.compareTo(lookext, extadj[i]) < 0) extadj[i] = lookext;
-					}
-				}*/
-
 				let bestPerm:number[] = null;
 				for (let perm of Stereochemistry.RUBRIC_EQUIV_OCTA)
 				{
@@ -586,13 +504,9 @@ export class DotHash
 				adj = Vec.idxGet(adj, bestPerm);
 				adjpri = Vec.idxGet(adjpri, bestPerm);
 			}
-//console.log('    EXTADJ:'+JSON.stringify(extadj));	//fnord
-//console.log('    OLDPRI:'+adjpri);
 			let newpri = this.assignPriority(extadj);
-//console.log('    NEWPRI:'+newpri);
 
 			let idx = Vec.idxSort(Vec.add(adjpri, Vec.mul(newpri, sz)));
-//console.log('    SORTED:'+idx+' NEWIDX:'+Vec.idxGet(newpri, idx));
 			for (let i = 0; i < idx.length - 1; i++)
 			{
 				let i1 = idx[i], i2 = idx[i + 1];
@@ -600,17 +514,11 @@ export class DotHash
 				if (adjpri[i1] != adjpri[i2] /*|| newpri[i1] == newpri[i2]*/) continue;
 
 				let adjI = adj[i1];
-//console.log('       i='+i+' idx:'+[i1, i2]+' adjidx:'+adjI+','+adj[i2]);
-//console.log('      atompri_THEN:'+this.atompri);
 				for (let j = 0; j < sz; j++) if (j != adjI && this.atompri[j] >= this.atompri[adjI]) this.atompri[j]++;
-//console.log('       atompri_NOW:'+this.atompri);
-//console.log('     rubricPRI:'+Vec.idxGet(this.atompri, adj));
 
 				// priority has been purturbed, so push it around for another overall cycle
 				return;
 			}
-
-//throw 'fnord';
 		}
 
 		// part 2: look for the canonically first occurring degenerates and perturb them
@@ -622,12 +530,10 @@ export class DotHash
 			while (n + grp < sz && pri[idx[n]] == pri[idx[n + grp]]) grp++;
 			let bestN = n;
 			let bestWalk = this.walkGraph(idx[n]);
-			//if (debug) Util.writeln("Group Size=" + grp + "\nW" + (idx[n] + 1) + "=" + bestWalk.length + ":" + Util.arrayStr(bestWalk));
 
 			for (let i = 1; i < grp; i++)
 			{
 				let walk = this.walkGraph(idx[n + i]);
-				//if (debug) Util.writeln("W" + (idx[n + i] + 1) + "=" + walk.length + ":" + Util.arrayStr(walk));
 				if (walk.length < bestWalk.length) {bestN = n + i; bestWalk = walk;}
 				else if (walk.length == bestWalk.length)
 				{
@@ -643,8 +549,6 @@ export class DotHash
 					}
 				}
 			}
-
-			//if (debug) Util.writeln("Best=" + (idx[bestN] + 1));
 
 			for (; n < sz; n++) if (n != bestN) pri[idx[n]]++;
 			break;
@@ -676,31 +580,13 @@ export class DotHash
 
 				shell.push([bondType[b - 1], pri[i2], stereoPri]);
 				maskX[i2] = true;
-
-				// !! rewrite below to order [i1,i2] to prev->next
-				// !! in cases where rubric[next], permute the rubric so that mask[i] gets priority for the lower rungs, and !mask[i] goes next
-				// !! incorporate the rubric into the shell sequence
-				// (NOTE: if this works, check to see if incorporateMultident is still necessary...)
-
-				/*if (mask[i1] && !mask[i2])
-				{
-					shell.push([bondType[b - 1], pri[i2]]);
-					maskX[i2] = true;
-				}
-				else if (!mask[i1] && mask[i2])
-				{
-					shell.push([bondType[b - 1], pri[i1]]);
-					maskX[i1] = true;
-				}*/
 			}
 			for (let i = 0; i < sz; i++) mask[i] = maskX[i];
 
 			this.sortSequences(shell);
-			//for (let seq of shell) {path.push(seq[0]); path.push(seq[1]);}
 			for (let seq of shell) path.push(seq[0], seq[1], seq[2]);
 			path.push(-1);
 		}
-//console.log('PATHS:'+path);
 
 		return path;
 	}
@@ -812,201 +698,7 @@ export class DotHash
 		return this.greatestCommonDenominator((v - u) >> 1, u);
 	}
 
-	// given that the atompri is defined and unique, composes a hash code that can disambiguate any two molecules
-	private composeHash():void
-	{
-		const mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
 
-		let bits:string[] = [];
-
-		// do atoms first
-		let order = Vec.idxSort(this.atompri);
-		for (let i of order)
-		{
-			let el = mol.atomElement(i + 1), hc = this.hcount[i], num = this.chgNumer[i], den = this.chgDenom[i];
-
-			/*let par:string = null;
-			if (!this.withStereo) {}
-			else if (this.rubricTetra[i]) par = parity(-1, this.rubricTetra[i], Stereochemistry.RUBRIC_EQUIV_TETRA);
-			else if (this.rubricSquare[i]) par = parity(i, this.rubricSquare[i], Stereochemistry.RUBRIC_EQUIV_SQUARE);
-			else if (this.rubricBipy[i]) par = parity(i, this.rubricBipy[i], Stereochemistry.RUBRIC_EQUIV_BIPY);
-			else if (this.rubricOcta[i]) par = parity(i, this.rubricOcta[i], Stereochemistry.RUBRIC_EQUIV_OCTA);
-			else if (this.rubricSides[i]) par = parity(-1, this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);
-			let pstr = par == null ? '' : '!' + par;*/
-			let par = this.parityString(i);
-			let pstr = par == null ? '' : '!' + par;
-
-			bits.push('[' + el + ',' + hc + ',' + num + '/' + den + pstr + ']');
-		}
-		bits.push(';');
-
-		// bonds next: they need to be sorted
-		let backMap = Vec.numberArray(0, na);
-		for (let n = 0; n < na; n++) backMap[order[n]] = n;
-		let bondseq:number[][] = [];
-		for (let n = 1; n <= nb; n++)
-		{
-			let a1 = backMap[mol.bondFrom(n) - 1] + 1;
-			let a2 = backMap[mol.bondTo(n) - 1] + 1;
-			[a1, a2] = [Math.min(a1, a2), Math.max(a1, a2)];
-			bondseq.push([a1, a2, this.bondType[n - 1]]);
-		}
-		this.sortSequences(bondseq);
-		for (let bs of bondseq) bits.push('[' + bs[0] + ':' + bs[1] + '=' + bs[2] + ']');
-
-		this.hash = bits.join('');
-	}
-
-	// if the node index should have rubric parity associated with it, returns a string that can be inserted into the hash code as a disambiguation
-	private parityString(idx:number):string
-	{
-		if (!this.withStereo) return null;
-		/*let par:string = null;
-		if (!this.withStereo) {}
-		else if (this.rubricTetra[i]) par = parity(-1, this.rubricTetra[i], Stereochemistry.RUBRIC_EQUIV_TETRA);
-		else if (this.rubricSquare[i]) par = parity(i, this.rubricSquare[i], Stereochemistry.RUBRIC_EQUIV_SQUARE);
-		else if (this.rubricBipy[i]) par = parity(i, this.rubricBipy[i], Stereochemistry.RUBRIC_EQUIV_BIPY);
-		else if (this.rubricOcta[i]) par = parity(i, this.rubricOcta[i], Stereochemistry.RUBRIC_EQUIV_OCTA);
-		else if (this.rubricSides[i]) par = parity(-1, this.rubricSides[i], [[0,1,2,3], [1,0,3,2]]);
-		let pstr = par == null ? '' : '!' + par;*/
-
-		let rubric:number[], perms:number[][];
-		if (this.rubricTetra[idx]) [rubric, perms] = [this.rubricTetra[idx], Stereochemistry.RUBRIC_EQUIV_TETRA];
-		else if (this.rubricSquare[idx]) [rubric, perms] = [this.rubricSquare[idx], Stereochemistry.RUBRIC_EQUIV_SQUARE];
-		else if (this.rubricBipy[idx]) [rubric, perms] = [this.rubricBipy[idx], Stereochemistry.RUBRIC_EQUIV_BIPY];
-		else if (this.rubricOcta[idx]) [rubric, perms] = [this.rubricOcta[idx], Stereochemistry.RUBRIC_EQUIV_OCTA];
-		else if (this.rubricSides[idx]) [rubric, perms] = [this.rubricSides[idx], [[0, 1, 2, 3], [1, 0, 3, 2]]];
-		else return null;
-
-		let sz = this.atompri.length, nsz = rubric.length;
-		const {mol} = this.dot;
-		let blk = Vec.numberArray(0, sz); // 0=not a bidentate ligand; >0=bidentate ligand identifier
-		if (mol.atomRingBlock(idx + 1) > 0)
-		{
-			let g = this.g.clone(), mol = this.dot.mol;
-			g.isolateNode(idx);
-			let cc = g.calculateComponents();
-			for (let adj of mol.atomAdjList(idx + 1)) if (mol.atomRingBlock(adj) == mol.atomRingBlock(idx + 1)) blk[adj - 1] = cc[adj - 1];
-		}
-		const {atompri, atomeqv} = this;
-
-		let generateParity = (posFirst:number, adjFirst:number):number[] =>
-		{
-			let optionAdj:number[][] = [], optionPri:number[][] = [], optionEqv:number[][] = [];
-			for (let perm of perms)
-			{
-				optionAdj.push(Vec.idxGet(rubric, perm));
-				optionPri.push(perm.map((i) => rubric[i] < 0 ? 0 : atompri[rubric[i]]));
-				optionEqv.push(perm.map((i) => rubric[i] < 0 ? 0 : atomeqv[rubric[i]]));
-			}
-
-			/*console.log('FROM:'+(idx+1)+' RUBRIC<atom>:'+Vec.add(rubric, 1));
-			console.log('ADJ:'+JSON.stringify(optionAdj));
-			console.log('PRI:'+JSON.stringify(optionPri));
-			console.log('EQV:'+JSON.stringify(optionEqv));*/
-
-			let order:number[]; 
-			if (this.rubricBipy[idx])
-				order = [3, 4, 0, 1, 2];
-			else
-				order = Vec.identity0(nsz);
-
-			for (let n = optionAdj.length - 1; n >= 0; n--) if (optionAdj[n][posFirst] != adjFirst)
-			{
-				optionAdj.splice(n, 1);
-				optionPri.splice(n, 1);
-				optionEqv.splice(n, 1);
-			}
-			if (optionAdj.length == 0) return null;
-
-			/*console.log('ORDER:'+order+' NPERM='+optionAdj.length);
-			console.log('subADJ:'+JSON.stringify(optionAdj));
-			console.log('subPRI:'+JSON.stringify(optionPri));
-			console.log('subEQV:'+JSON.stringify(optionEqv));*/
-
-			let blkgrp = new Map<number, number>(); // connected component -> group index
-			let ngroups = 0;
-			//console.log('BLK:' + blk);
-			if (blk[optionAdj[0][order[0]]] > 0) blkgrp.set(blk[optionAdj[0][order[0]]], ++ngroups);
-			//console.log('blkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));
-
-			let bestScore:number[];
-			for (let n = 1; n < nsz; n++)
-			{
-	//console.log('--- n='+n);		
-				let bestN = -1, bestNode = -1;
-				for (let i = 0; i < optionAdj.length; i++)
-				{
-					let score:number[] = [];
-					for (let j = 0; j <= n; j++) 
-					{
-						let k = order[j], adj = optionAdj[i][k];
-						let gscore = adj < 0 || blk[adj] == 0 ? 0 : (blkgrp.get(blk[adj]) || nsz);
-	//console.log('        j='+j+' k='+k+' blk='+blk[optionAdj[i][k]] + ' gscore='+gscore);
-						score.push(optionEqv[i][k] + sz * gscore);
-					}
-					for (let j = 0; j <= n; j++) score.push(optionPri[i][order[j]]); // in case of a tie, prio kicks in
-	//console.log('    i='+i+' score='+score);				
-					if (bestN < 0 || Vec.compareTo(score, bestScore) < 0) [bestN, bestScore, bestNode] = [i, score, optionAdj[i][order[n]]];
-				}
-	//console.log('     bestNode='+bestNode+' blkBest='+blk[bestNode]+' blkgrphas='+blkgrp.has(blk[bestNode])+' ngr='+ngroups);
-				if (blk[bestNode] > 0 && !blkgrp.has(blk[bestNode])) blkgrp.set(blk[bestNode], ++ngroups);
-	//console.log('     zblkGroup:'+JSON.stringify(Array.from(blkgrp.entries())));	
-				for (let i = optionAdj.length - 1; i >= 0; i--) if (optionAdj[i][order[n]] != bestNode)
-				{
-					optionAdj.splice(i, 1);
-					optionPri.splice(i, 1);
-					optionEqv.splice(i, 1);
-				}
-			}
-
-			/*console.log('outADJ:'+JSON.stringify(optionAdj));
-			console.log('outPRI:'+JSON.stringify(optionPri));
-			console.log('outEQV:'+JSON.stringify(optionEqv));
-
-			console.log('bestScore:'+JSON.stringify(bestScore));*/
-
-			return bestScore.slice(0, nsz);
-		}
-
-		// evaluate all equivalent starting points
-
-		let posFirst = 0, adjFirst:number[] = [];
-		if (this.rubricBipy[idx])
-		{
-			let loweqv = Math.min(atomeqv[rubric[3]], atomeqv[rubric[4]]);
-			posFirst = 3;
-			if (atomeqv[rubric[3]] == loweqv) adjFirst.push(rubric[3]);
-			if (atomeqv[rubric[4]] == loweqv) adjFirst.push(rubric[4]);
-		}
-		else
-		{
-			let loweqv = Number.POSITIVE_INFINITY;
-			for (let n = 0; n < nsz; n++) if (rubric[n] >= 0) loweqv = Math.min(loweqv, atomeqv[rubric[n]]);
-			for (let n = 0; n < nsz; n++) if (rubric[n] >= 0 && atomeqv[rubric[n]] == loweqv) adjFirst.push(rubric[n]);
-		}
-
-//console.log('================= ATOM='+(idx+1)+' posFirst='+posFirst+' adjFirst='+adjFirst+'======');
-
-		let bestScore:number[] = null;
-		for (let n = 0; n < adjFirst.length; n++)
-		{
-//console.log('n='+n+' adjFirst='+adjFirst[n]);		
-			let score = generateParity(posFirst, adjFirst[n]);
-			if (!score) continue;
-//console.log('        score='+score);
-			if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
-		}
-//console.log('BEST:'+bestScore);
-
-		let parity = Vec.idxSort(bestScore);
-		//console.log('parity:'+parity);
-		//return parity;
-
-		//throw 'fnord';
-
-		return parity.toString();
-	}
 }
 
 /* EOF */ }
