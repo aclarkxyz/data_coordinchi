@@ -60,14 +60,11 @@ export class DotHash
 		this.refinePriorities();
 
 		let dotcomp = new DotCompose(this.dot, this.hcount, this.chgNumer, this.chgDenom, this.bondType, this.atompri, this.atomeqv);
-		if (this.withStereo)
-		{
-			dotcomp.rubricTetra = this.rubricTetra;
-			dotcomp.rubricSquare = this.rubricSquare;
-			dotcomp.rubricBipy = this.rubricBipy;
-			dotcomp.rubricOcta = this.rubricOcta;
-			dotcomp.rubricSides = this.rubricSides;
-		}
+		dotcomp.rubricTetra = this.rubricTetra;
+		dotcomp.rubricSquare = this.rubricSquare;
+		dotcomp.rubricBipy = this.rubricBipy;
+		dotcomp.rubricOcta = this.rubricOcta;
+		dotcomp.rubricSides = this.rubricSides;
 		this.hash = dotcomp.compose();
 		return this.hash;
 	}
@@ -93,6 +90,13 @@ export class DotHash
 		let atomMask = Vec.booleanArray(true, mol.numAtoms), bondMask = Vec.booleanArray(true, mol.numBonds);
 		for (let n = 1; n <= na; n++) if (!pathMask[n - 1] && this.unwantedHydrogen(mol, n))
 		{
+			if (meta)
+			{
+				// if the neighbour is involved in stereochemistry particular to heavy elements, keep it
+				let idx = mol.atomAdjList(n)[0] - 1;
+				if (meta.rubricSquare[idx] || meta.rubricBipy[idx] || meta.rubricOcta[idx]) continue;
+			}
+
 			this.hcount[mol.atomAdjList(n)[0] - 1]++;
 			atomMask[n - 1] = false;
 			bondMask[mol.atomAdjBonds(n)[0] - 1] = false;
@@ -123,12 +127,14 @@ export class DotHash
 			}
 		}
 
+		this.rubricTetra = Vec.anyArray(null, na);
+		this.rubricSquare = Vec.anyArray(null, na);
+		this.rubricBipy = Vec.anyArray(null, na);
+		this.rubricOcta = Vec.anyArray(null, na);
+		this.rubricSides = Vec.anyArray(null, na);
+
 		if (this.withStereo)
 		{
-			this.rubricTetra = Vec.anyArray(null, na);
-			this.rubricSquare = Vec.anyArray(null, na);
-			this.rubricBipy = Vec.anyArray(null, na);
-			this.rubricOcta = Vec.anyArray(null, na);
 			for (let n = 0; n < na; n++)
 			{
 				if (meta.rubricTetra[n]) this.rubricTetra[n] = Vec.sub(meta.rubricTetra[n], 1);
@@ -137,7 +143,6 @@ export class DotHash
 				else if (meta.rubricOcta[n]) this.rubricOcta[n] = Vec.sub(meta.rubricOcta[n], 1);
 			}
 
-			this.rubricSides = Vec.anyArray(null, na);
 			for (let n = 0; n < meta.rubricSides.length; n++)
 			{
 				let sides = meta.rubricSides[n];
@@ -165,8 +170,8 @@ export class DotHash
 
 		let atno = mol.atomicNumber(other);
 		if (Chemistry.ELEMENT_BLOCKS[atno] >= 3) return false; // neighbour is d-block or later
-		if (mol.atomHydrogens(other) + mol.atomAdjCount(other) > 4) return false; // neighbour has high valence
-
+		// ... this high-valence rule is not workable
+		//if (mol.atomHydrogens(other) + mol.atomAdjCount(other) > 4) return false; // neighbour has high valence
 		return true;
 	}
 
@@ -224,8 +229,7 @@ export class DotHash
 			for (let n = 0; n < sz; n++)
 			{
 				let rubric:number[] = null, perm:number[][] = null;
-				if (!this.withStereo /*|| !this.atomeqv*/) {}
-				else if (this.rubricTetra[n]) [rubric, perm] = [this.rubricTetra[n], Stereochemistry.RUBRIC_EQUIV_TETRA];
+				if (this.rubricTetra[n]) [rubric, perm] = [this.rubricTetra[n], Stereochemistry.RUBRIC_EQUIV_TETRA];
 				else if (this.rubricSquare[n]) [rubric, perm] = [this.rubricSquare[n], Stereochemistry.RUBRIC_EQUIV_SQUARE];
 				else if (this.rubricBipy[n]) [rubric, perm] = [this.rubricBipy[n], Stereochemistry.RUBRIC_EQUIV_BIPY];
 				else if (this.rubricOcta[n]) [rubric, perm] = [this.rubricOcta[n], Stereochemistry.RUBRIC_EQUIV_OCTA];
@@ -255,7 +259,6 @@ export class DotHash
 	private defineEquivalents():void
 	{
 		this.atomeqv = Vec.duplicate(this.atompri);
-		if (!this.withStereo) return;
 
 		const g = this.g, mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
 
@@ -421,6 +424,7 @@ export class DotHash
 		// part 1: consider stereo-actives first, and look for ways to disambiguate neighbours based on local geometry
 		const sz = this.atompri.length;
 		let pri = this.atompri.slice(0);
+
 		for (let n = 0; n < sz; n++)
 		{
 			/*if (this.rubricTetra[n]) pri[n] += sz;
@@ -429,6 +433,7 @@ export class DotHash
 			else if (this.rubricOcta[n]) pri[n] += 4 * sz;
 			else pri[n] += 5 * sz; // non-stereoactives last
 		}
+
 		for (let n of Vec.idxSort(pri))
 		{
 			let adj:number[], perms:number[][];
