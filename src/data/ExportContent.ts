@@ -164,6 +164,8 @@ export class ExportContent
 			console.log('INPUT:\n' + mol);
 			console.log('MOLFILE:\n' + molfile);
 			console.log('OUTPUT:\n' + outmol);
+			MolUtil.expandAbbrevs(mol, true);
+			console.log('EXPANDED ORIGINAL:\n' + mol);			
 			throw 'Read/write molfile failed, source: ' + src;
 		}
 
