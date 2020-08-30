@@ -72,16 +72,6 @@ export class DotCompose
 		}
 
 		let order = Vec.idxSort(this.atompri);
-		/*for (let i of order)
-		{
-			let el = mol.atomElement(i + 1), hc = this.hcount[i], num = this.chgNumer[i], den = this.chgDenom[i];
-			let par = this.parityString(i);
-			let pstr = par == null ? '' : '!' + par;
-
-			bits.push('[' + el + ',' + hc + ',' + num + '/' + den + pstr + ']');
-		}
-		for (let i of order) bits.push(atomLabel[i]);
-		bits.push(';');*/
 
 		for (let n = 0; n < order.length;)
 		{
@@ -101,17 +91,6 @@ export class DotCompose
 		// bonds next: they need to be sorted
 		let backMap = Vec.numberArray(0, na); // graph index (0-based) to the ordered output atoms (1-based)
 		for (let n = 0; n < na; n++) backMap[order[n]] = n + 1;
-		
-		/*let bondseq:number[][] = [];
-		for (let n = 1; n <= nb; n++)
-		{
-			let a1 = backMap[mol.bondFrom(n) - 1] + 1;
-			let a2 = backMap[mol.bondTo(n) - 1] + 1;
-			[a1, a2] = [Math.min(a1, a2), Math.max(a1, a2)];
-			bondseq.push([a1, a2, this.bondType[n - 1]]);
-		}
-		this.sortSequences(bondseq);
-		for (let bs of bondseq) bits.push('[' + bs[0] + ':' + bs[1] + '=' + bs[2] + ']');*/
 
 		let walkPaths = this.getWalkPaths();
 		for (let n = 0; n < walkPaths.length; n++)
@@ -177,6 +156,7 @@ export class DotCompose
 				optionPri.splice(n, 1);
 				optionEqv.splice(n, 1);
 			}
+
 			if (optionAdj.length == 0) return null;
 
 			let blkgrp = new Map<number, number>(); // connected component -> group index
@@ -194,7 +174,6 @@ export class DotCompose
 					{
 						let k = order[j], adj = optionAdj[i][k];
 						let gscore = adj < 0 || blk[adj] == 0 ? 0 : (blkgrp.get(blk[adj]) || nsz);
-						//score.push(optionEqv[i][k] + sz * gscore);
 						score.push(sz * optionEqv[i][j] + gscore);
 					}
 					for (let j = 0; j <= n; j++) score.push(optionPri[i][order[j]]); // in case of a tie, prio kicks in
@@ -222,6 +201,12 @@ export class DotCompose
 			if (atomeqv[rubric[3]] == loweqv) adjFirst.push(rubric[3]);
 			if (atomeqv[rubric[4]] == loweqv) adjFirst.push(rubric[4]);
 		}
+		else if (this.rubricSides[idx])
+		{
+			let loweqv = Number.POSITIVE_INFINITY;
+			for (let n = 0; n < 2; n++) if (rubric[n] >= 0) loweqv = Math.min(loweqv, atomeqv[rubric[n]]);
+			for (let n = 0; n < 2; n++) if (rubric[n] >= 0 && atomeqv[rubric[n]] == loweqv) adjFirst.push(rubric[n]);
+		}
 		else
 		{
 			let loweqv = Number.POSITIVE_INFINITY;
@@ -241,17 +226,17 @@ export class DotCompose
 
 		// for tetrahedral or bond-side stereochemistry it is sufficient to represent the parity with a single bit; for the other stereoforms,
 		// there are more degrees of freedom that need to be represented
-		if (this.rubricTetra[idx] || this.rubricSides[idx])
+		if (this.rubricTetra[idx])
 		{
-			return Permutation.parityIdentity(parity).toString();
+			return 't' + Permutation.parityIdentity(parity).toString();
 		}
 		else if (this.rubricSquare[idx])
 		{
 			// square pyramidal configurations can have 4 distinct permutation states, based on the scoring & ordering system
-			if (Vec.equals(parity, [0, 1, 2, 3])) return '0';
-			else if (Vec.equals(parity, [0, 1, 3, 2])) return '1';
-			else if (Vec.equals(parity, [0, 2, 1, 3])) return '2';
-			else if (Vec.equals(parity, [0, 2, 3, 1])) return '3';
+			if (Vec.equals(parity, [0, 1, 2, 3])) return 'q0';
+			else if (Vec.equals(parity, [0, 1, 3, 2])) return 'q1';
+			else if (Vec.equals(parity, [0, 2, 1, 3])) return 'q2';
+			else if (Vec.equals(parity, [0, 2, 3, 1])) return 'q3';
 			//else throw 'Invalid square planar parity: ' + parity + '/score=' + bestScore;
 		}
 		else if (this.rubricBipy[idx])
@@ -260,7 +245,7 @@ export class DotCompose
 			// indicating the order of the remaining substituents
 			let invpar = [0, 0, 0, 0, 0];
 			for (let n = 0; n < 5; n++) invpar[parity[n]] = n;
-			return [invpar[3], invpar[4], Permutation.parityOrder([invpar[0], invpar[1], invpar[2]])].join('');
+			return 'b' + [invpar[3], invpar[4], Permutation.parityOrder([invpar[0], invpar[1], invpar[2]])].join('');
 		}
 		else if (this.rubricOcta[idx])
 		{
@@ -268,7 +253,11 @@ export class DotCompose
 			// indicating the order of the remaining substituents
 			let invpar = [0, 0, 0, 0, 0, 0];
 			for (let n = 0; n < 6; n++) invpar[parity[n]] = n;
-			return [invpar[4], invpar[5], Permutation.parityOrder([invpar[0], invpar[1], invpar[2], invpar[3]])].join('');
+			return 'o' + [invpar[4], invpar[5], Permutation.parityOrder([invpar[0], invpar[1], invpar[2], invpar[3]])].join('');
+		}
+		else if (this.rubricSides[idx])
+		{
+			return 's' + Permutation.parityIdentity(parity).toString();
 		}
 
 		// NOTE: converting the parity array into a string works for all cases, but it includes more information than is necessary to
@@ -277,22 +266,6 @@ export class DotCompose
 
 		return null;
 	}
-
-	// sort in place: the array-of-arrays is sorted by lowest values first; does not assume that all elements are the same length
-	/*private sortSequences(priseq:number[][]):void
-	{
-		priseq.sort((seq1, seq2):number =>
-		{
-			const sz = Math.max(seq1.length, seq2.length);
-			for (let n = 0; n < sz; n++)
-			{
-				let v1 = n < seq1.length ? seq1[n] : Number.NEGATIVE_INFINITY;
-				let v2 = n < seq2.length ? seq2[n] : Number.NEGATIVE_INFINITY;
-				if (v1 < v2) return -1; else if (v1 > v2) return 1;
-			}
-			return 0;
-		});
-	}*/
 
 	// traverses the structure to generate some number of paths that traverses all of the bonds, in a canonical order, that tries to minimise
 	// the number of paths required; the form of each path is [a1, b12, a2, b23, a3, ...] whereby each starts & ends with an atom (size = odd)

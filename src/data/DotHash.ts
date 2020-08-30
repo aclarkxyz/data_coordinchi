@@ -260,6 +260,13 @@ export class DotHash
 	{
 		this.atomeqv = Vec.duplicate(this.atompri);
 
+		let neighbourWalkEquivalents= (nbr:number[]):number[] =>
+		{
+			let pri:number[] = [];
+			for (let n of nbr) pri.push(n < 0 ? 0 : this.atomeqv[n]);
+			return pri;
+		};
+
 		const g = this.g, mol = this.dot.mol, na = mol.numAtoms, nb = mol.numBonds;
 
 		for (let n = 0; n < na; n++)
@@ -267,7 +274,7 @@ export class DotHash
 			// tetrahedral chirality inactive if any two equivalent neighbours
 			if (this.rubricTetra[n])
 			{
-				let eq = this.neighbourWalkEquivalents([n], this.rubricTetra[n]);
+				let eq = neighbourWalkEquivalents(this.rubricTetra[n]);
 				outer: for (let i = 0; i < 3; i++) for (let j = i + 1; j < 4; j++) if (eq[i] == eq[j])
 				{
 					this.rubricTetra[n] = null;
@@ -280,7 +287,7 @@ export class DotHash
 			// square planar stereochemistry inactive if any 3 identical constituents
 			if (this.rubricSquare[n])
 			{
-				let eq = this.neighbourWalkEquivalents([n], this.rubricSquare[n]);
+				let eq = neighbourWalkEquivalents(this.rubricSquare[n]);
 				if (multident) this.incorporateMultidentate(eq, n, this.rubricSquare[n]);
 				for (let i = 0; i < 4; i++)
 				{
@@ -305,7 +312,7 @@ export class DotHash
 			// trigonal bipyramidal stereochemistry inactive only if all ligands are identical
 			if (this.rubricBipy[n])
 			{
-				let eq = this.neighbourWalkEquivalents([n], this.rubricBipy[n]);
+				let eq = neighbourWalkEquivalents(this.rubricBipy[n]);
 				if (multident) this.incorporateMultidentate(eq, n, this.rubricBipy[n]);
 				let allSame = true;
 				for (let i = 0; i < 4; i++) if (eq[i] != eq[i + 1])
@@ -319,7 +326,7 @@ export class DotHash
 			// octahedral stereochemistry inactive if any 5 identical constituents
 			if (this.rubricOcta[n])
 			{
-				let eq = this.neighbourWalkEquivalents([n], this.rubricOcta[n]);
+				let eq = neighbourWalkEquivalents(this.rubricOcta[n]);
 				if (multident) this.incorporateMultidentate(eq, n, this.rubricOcta[n]);
 				for (let i = 0; i < 6; i++)
 				{
@@ -337,19 +344,10 @@ export class DotHash
 		// bondsides can be eliminated if either side is identical
 		for (let n = 0; n < nb; n++) if (this.rubricSides[n])
 		{
-			let i1 = mol.bondFrom(n + 1) - 1, i2 = mol.bondTo(n + 1) - 1;
-			let eq = this.neighbourWalkEquivalents([i1, i2], this.rubricSides[n]);
+			//let i1 = mol.bondFrom(n + 1) - 1, i2 = mol.bondTo(n + 1) - 1;
+			let eq = neighbourWalkEquivalents(this.rubricSides[n]);
 			if (eq[0] == eq[1] || eq[2] == eq[3]) this.rubricSides[n] = null;
 		}
-	}
-
-	// for a list of neighbours immediately adjacent to atom(s), return a value for each such that same number = same thing; this takes into account meta
-	// stereochemistry along the walk path
-	private neighbourWalkEquivalents(src:number[], nbr:number[]):number[]
-	{
-		let pri:number[] = [];
-		for (let n of nbr) pri.push(n < 0 ? 0 : this.atomeqv[n]);
-		return pri;
 	}
 
 	// given that we have equivalence values for a stereocentre, factor in the possibility that we may have multidentate ligands that have the same
@@ -412,7 +410,6 @@ export class DotHash
 			this.sortPermutation(nbrpri, perm);
 		}
 
-		// NOTE: this would be where to insert the atom-centred stereochemistry constraint, to enforce an ordering
 		let ret = [atompri[idx]];
 		for (let pri of nbrpri) for (let p of pri) ret.push(p);
 		return ret;
@@ -521,7 +518,7 @@ export class DotHash
 				let adjI = adj[i1];
 				for (let j = 0; j < sz; j++) if (j != adjI && this.atompri[j] >= this.atompri[adjI]) this.atompri[j]++;
 
-				// priority has been purturbed, so push it around for another overall cycle
+				// priority has been perturbed, so push it around for another overall cycle
 				return;
 			}
 		}

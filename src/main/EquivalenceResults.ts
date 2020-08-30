@@ -221,7 +221,7 @@ export class EquivalenceResults
 		}
 
 		let tr = $('<tr/>');
-		this.tableRows.push(tr);
+		this.tableRows[row] = tr;
 		let th = $('<th/>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top'});
 		th.text('Row ' + (row + 1));
 
