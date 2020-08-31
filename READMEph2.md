@@ -221,13 +221,31 @@ The bonds follow, after a semicolon. Bond sequences follow the atom priority sch
 
 The algorithm for generating the coordination layer is simple and requires little explanation, except for two parts: stereochemical parity and bond sequence.
 
-Stereochemistry for square planar/trigonal bipyramidal/octahedral cannot be captured with a single bit of parity information, as is the case for tetrahedral and double bond centres. The algorithm needs a bit more freedom to encode the different possible atom priorities that can occur.
+Stereochemistry for square planar/trigonal bipyramidal/octahedral cannot be captured with a single bit of parity information, as is the case for tetrahedral and double bond centres. The algorithm needs a bit more freedom to encode the different possible atom priorities that can occur. The function `DotCompose.parityString` operates on one atom at a time. The first part of the function involves creating an array variable called `parity`, which is of same length as the rubric, and is populated by unique values between 0 and length-1. The parity is guaranteed to be sorted so that the first value is 0, and the remaining values have the lowest sequence possible given the constraints as the rubric.
 
+!!! describe the preparation section of the *parityString*
 
+The simpler stereocentres can be encoded with a single digit to indicate parity.
+
+* _tetrahedral_: parity for tetrahedral stereocentres requires just one bit of information due to the extremely high symmetry; if the parity array requires an even number of swaps to permute it to identity, the label is `t0`, or if it is odd, the label is `t1`
+
+* _bond sides_: the parity for double bond stereocentres is done separately for both atoms that are involved in the bond; because the 4 atom positions are divided into 2 groups of two, the odd/even parity system works in the same way as for chiral centres, and the label is `s0` for even, `s1` for odd
+
+* _square planar_: a square planar centre can have up to 3 different geometric states if there is sufficient ligand variability; imagine a square planar complex with ligands [&alpha;, &beta;, &gamma;, &delta;] where &alpha; is lowest priority and so is fixed in the first position; there are 3 other ligands which may be placed in the position _trans_ to this; given that there is rotational symmetry along the axis between any two trans ligands, the ordering of the two remaining ligands that are _cis_ to &alpha; is unimportant, and therefore there are no more than 3 possibilities; these are labelled as `q0`, `q1` or `q2` (which is considerably less than the full 4x3x2x1 = 24 possible permutations)
+
+* _trigonal bipyramidal_: given that the low symmetry of this configuration implies at least 2 different types of ligands (axial and equatorial), the number of possible permutations would be 2x4x3x2x1 = 48 (which is a large subset of the total factorial range of options, 5x4x3x2x1 = 120); rather than enumerating the possibilities, the stereochemistry code is made up of 3 digits: the first two indicate the priority indexes of the axial ligands, and the last digit is the odd/even parity of the equatorial ligands; this is labelled as `bABP` where ABP refers to the 3 digits
+
+* _octahedral_: with the first position assigned to the lowest priority ligand, octahedral geometry still allows for 5x4x3x2x1 = 120 ways to place the 3 remaining ligands, some of which may be degenerate depending on which ligands are equivalent; the stereochemistry code is composed by listing the parity indexes of the ligands that are assigned to the axial positions in the canonical parity order, then adding the odd/even parity for the remaining 4 ligands that are occupying the equatorial slots; this is labelled as `oABP` where ABP refers to the 3 digits
+
+!!! graphwalk
 
 ## Edge Cases
 
+!!! reorg as issues & edge cases, separate
+
 The [Phase 1](README.md) algorithm describes several issues with the way this approach handles molecular composition, e.g. aromaticity vs. anti-aromaticity is not handled at all, ionic or H-bonds are treated as ground truth according to the input, and there is no tautomer equivalence functionality.
+
+!!! BELOW - not true; rephrase
 
 The 5 types of stereochemistry that are presently supported have a comprehensive list of test cases, and the algorithm achieves the correct result for all cases. There are however some nuances to be aware of.
 
@@ -252,6 +270,8 @@ Consider a non-problematic example, _cisplatin_:
 To describe the square planar stereochemistry around platinum, one way would be to say that the atoms can be ordered in any way that is either clockwise or anti-clockwise. The correct sequence is any such order that minimises the priority sort: if we say that the ammonia ligands have priority &alpha; and the chloro ligands have priority &beta;, then there are two options: atom order [5, 2, 4, 3] (clockwise) gives [&alpha;, &alpha;, &beta;, &beta;], as does atom order [2, 5, 3, 4]. These are both valid stereorepresentations of the exact reality. However, atoms 2 & 5 (ammonia ligands) are compositionally indistinguishable from each other, as are atoms 3 & 4 (chloro ligands). This means that if the stereo representation was indicated as [5, 2, 3, 4] it _does not_ capture the consecutive journey around the rim of the square planar geometry, because atoms 2 & 3 are opposite each other. From an atom indexing point of view, this stereochemistry description is wrong. But because of the compositional equivalence, it gives the same priority, i.e. [&alpha;, &alpha;, &beta;, &beta;]. What has happened here is essentially that the two chlorine atoms have been flipped, and it doesn't matter, because they are the same.
 
 What if there was a square planar complex like above where the substituents were _compositionally_ the same, but nonetheless different? This happens if they have stereochemistry of their own, which means they must be distinguished.
+
+!!! REPLACE/augment this with Co(en)3 example, the "sail chirality": example orders atoms 1,2,3 all on the same cap, vs. alternating between cis & trans; this one can actually be resolved post factum, but you can see that ordering is going to bung things up if not addressed...
 
 This is easiest to illustrate with a fairly contrived example. Consider the following platinum complex with 4 ligands that are identical except that each ligand has a chiral centre:
 
@@ -297,6 +317,8 @@ The diagram on the left will be interpreted as having an octahedral stereocentre
 In the first case, two of the hydrogens are represented as distinct entitites in the atomic composition part of the coordination layer (`2*H`), and referenced explicitly in the bonding patterns. In the second case, they are subsumed into their heavy atom neighbour (as `SnH2`), just like as is done for the other heavy atoms that have implicit hydrogens (in this case, `8*CH`).
 
 The algorithm also completely ignores isotopic information. This would be trivial to add as an additional atom property. The only thing to keep in mind is that it has the same atom ordering consequences as stereochemistry: if atom isotope is allowed to alter the graph walk order, then the encoded result may be significantly different to an otherwise isotopically labelled equivalent; but if the walk order is fixed, then the output order is essentially random.
+
+!!! TODO: snapshot of edgecases.ds and discussion; mention it can be plugged into the app and its failures observed
 
 ## Deployment Recommendations
 

@@ -39,6 +39,7 @@ export class DotHash
 	private bondType:number[] = []; // bond-list analog: holds the dot-bond order
 	private nbrType:number[][] = []; // neighbour-list analog: holds the dot-bond order
 
+	// zero-based rubric indices
 	private rubricTetra:number[][] = null;
 	private rubricSquare:number[][] = null;
 	private rubricBipy:number[][] = null;
@@ -424,8 +425,9 @@ export class DotHash
 
 		for (let n = 0; n < sz; n++)
 		{
-			/*if (this.rubricTetra[n]) pri[n] += sz;
-			else*/ if (this.rubricSquare[n]) pri[n] += 2 * sz;
+			//if (this.rubricTetra[n]) pri[n] += sz;
+			//else
+			if (this.rubricSquare[n]) pri[n] += 2 * sz;
 			else if (this.rubricBipy[n]) pri[n] += 3 * sz;
 			else if (this.rubricOcta[n]) pri[n] += 4 * sz;
 			else pri[n] += 5 * sz; // non-stereoactives last
@@ -513,7 +515,7 @@ export class DotHash
 			{
 				let i1 = idx[i], i2 = idx[i + 1];
 				if (adj[i1] < 0) continue;
-				if (adjpri[i1] != adjpri[i2] /*|| newpri[i1] == newpri[i2]*/) continue;
+				if (adjpri[i1] != adjpri[i2]) continue;
 
 				let adjI = adj[i1];
 				for (let j = 0; j < sz; j++) if (j != adjI && this.atompri[j] >= this.atompri[adjI]) this.atompri[j]++;

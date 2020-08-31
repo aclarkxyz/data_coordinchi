@@ -55,6 +55,7 @@ export interface EquivalenceResultsOptions
 	stereochemistry:boolean; // if true, stereoisomers are disambiguated
 	failOnly:boolean; // only render rows that have a failure case of some kind
 	inchiFail:boolean; // record failure when standard InChI fails to achieve desired effect (which happens a lot)
+	permute:boolean; // if true, runs permutation checks on the input, for extra surety
 	startAt:number; // first row (1-based)
 	endAt:number; // last row (1-based)
 }
@@ -373,6 +374,7 @@ export class EquivalenceResults
 	// well the high level chemistry is working out
 	private investigateHashes(note:string, mol:Molecule, dhash:string)
 	{
+		if (!this.opt.permute) return;
 		if (mol.numAtoms <= 1) return;
 
 		let origMol = mol;
@@ -394,7 +396,6 @@ export class EquivalenceResults
 				throw 'Dot hashes differ';
 			}
 		}
-		//console.log('!! SKIP PERM');
 	}
 
 	// shorthand for creating a card object

@@ -229,6 +229,41 @@ export class ExportContent
 			}
 		}
 	}
+
+	// temporary utility method (not relevant to the rest of this class)
+	private enumeratePerms():void
+	{
+		let perms = Permutation.allPermutations(5).filter((perm) => perm[0] == 0 || perm[3] == 0);
+		outer: for (let i = perms.length - 1; i >= 0; i--)
+		{
+			for (let sub of Stereochemistry.RUBRIC_EQUIV_BIPY)
+			{
+				let look = Vec.idxGet(perms[i], sub);
+				for (let j = 0; j < i; j++) if (Vec.equals(look, perms[j]))
+				{
+					perms.splice(i, 1);
+					continue outer;
+				}
+			}
+		}
+		console.log('TBP perms:'+perms.length+' ==> '+JSON.stringify(perms));
+
+		perms = Permutation.allPermutations(6).filter((perm) => perm[0] == 0);
+		outer: for (let i = perms.length - 1; i >= 0; i--)
+		{
+			for (let sub of Stereochemistry.RUBRIC_EQUIV_OCTA)
+			{
+				let look = Vec.idxGet(perms[i], sub);
+				for (let j = 0; j < i; j++) if (Vec.equals(look, perms[j]))
+				{
+					perms.splice(i, 1);
+					continue outer;
+				}
+			}
+		}
+		console.log('OCT perms:'+perms.length+' ==> '+JSON.stringify(perms));
+
+	}
 }
 
 /* EOF */ }

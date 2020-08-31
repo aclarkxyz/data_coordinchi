@@ -32,6 +32,7 @@ const BONDTYPE_TEXT = new Map<DotPathBond, string>(BONDTYPE_MAP);
 
 export class DotCompose
 {
+	// zero-based rubric indices
 	public rubricTetra:number[][] = null;
 	public rubricSquare:number[][] = null;
 	public rubricBipy:number[][] = null;
@@ -124,6 +125,8 @@ export class DotCompose
 
 		let sz = this.atompri.length, nsz = rubric.length;
 		const {mol} = this.dot;
+		const {atompri, atomeqv} = this;
+
 		let blk = Vec.numberArray(0, sz); // 0=not a bidentate ligand; >0=bidentate ligand identifier
 		if (mol.atomRingBlock(idx + 1) > 0)
 		{
@@ -132,7 +135,9 @@ export class DotCompose
 			let cc = g.calculateComponents();
 			for (let adj of mol.atomAdjList(idx + 1)) if (mol.atomRingBlock(adj) == mol.atomRingBlock(idx + 1)) blk[adj - 1] = cc[adj - 1];
 		}
-		const {atompri, atomeqv} = this;
+		let blkgrp = new Map<number, number>(); // connected component -> group index				
+		let ngroups = 0;
+		for (let n of Vec.idxSort(atompri)) if (!blkgrp.has(blk[n])) blkgrp.set(blk[n], ++ngroups);
 
 		let generateParity = (posFirst:number, adjFirst:number):number[] =>
 		{
@@ -159,33 +164,22 @@ export class DotCompose
 
 			if (optionAdj.length == 0) return null;
 
-			let blkgrp = new Map<number, number>(); // connected component -> group index
-			let ngroups = 0;
-			if (blk[optionAdj[0][order[0]]] > 0) blkgrp.set(blk[optionAdj[0][order[0]]], ++ngroups);
+			let bestScore:number[] = null;
 
-			let bestScore:number[];
-			for (let n = 1; n < nsz; n++)
+			for (let o = 0; o < optionAdj.length; o++)
 			{
-				let bestN = -1, bestNode = -1;
-				for (let i = 0; i < optionAdj.length; i++)
+				let adj = optionAdj[o], pri = optionPri[o], eqv = optionEqv[o];
+
+				let score:number[] = [];
+				for (let n of order)
 				{
-					let score:number[] = [];
-					for (let j = 0; j <= n; j++)
-					{
-						let k = order[j], adj = optionAdj[i][k];
-						let gscore = adj < 0 || blk[adj] == 0 ? 0 : (blkgrp.get(blk[adj]) || nsz);
-						score.push(sz * optionEqv[i][j] + gscore);
-					}
-					for (let j = 0; j <= n; j++) score.push(optionPri[i][order[j]]); // in case of a tie, prio kicks in
-					if (bestN < 0 || Vec.compareTo(score, bestScore) < 0) [bestN, bestScore, bestNode] = [i, score, optionAdj[i][order[n]]];
+					let gscore = 0;
+					if (adj[n] >= 0 && blk[adj[n]] > 0) gscore = blkgrp.get(blk[adj[n]]) || 0;
+					score.push(sz * eqv[n] + gscore);
 				}
-				if (blk[bestNode] > 0 && !blkgrp.has(blk[bestNode])) blkgrp.set(blk[bestNode], ++ngroups);
-				for (let i = optionAdj.length - 1; i >= 0; i--) if (optionAdj[i][order[n]] != bestNode)
-				{
-					optionAdj.splice(i, 1);
-					optionPri.splice(i, 1);
-					optionEqv.splice(i, 1);
-				}
+				for (let n of order) score.push(pri[n]); // priority used for tiebreaker
+
+				if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
 			}
 
 			return bestScore.slice(0, nsz);
@@ -193,25 +187,36 @@ export class DotCompose
 
 		// evaluate all equivalent starting points
 
+		let rubricEquiv = rubric.map((idx) => idx < 0 ? 0 : atomeqv[idx]);
 		let posFirst = 0, adjFirst:number[] = [];
 		if (this.rubricBipy[idx])
 		{
-			let loweqv = Math.min(atomeqv[rubric[3]], atomeqv[rubric[4]]);
+			/*let loweqv = Math.min(rubricEquiv[3], rubricEquiv[4]);
 			posFirst = 3;
-			if (atomeqv[rubric[3]] == loweqv) adjFirst.push(rubric[3]);
-			if (atomeqv[rubric[4]] == loweqv) adjFirst.push(rubric[4]);
+			if (rubricEquiv[3] == loweqv) adjFirst.push(rubric[3]);
+			if (rubricEquiv[4] == loweqv) adjFirst.push(rubric[4]);*/
+
+			let loweqv = Vec.min(rubricEquiv);
+			if (rubricEquiv[3] == loweqv || rubricEquiv[4] == loweqv)
+			{
+				posFirst = 3;
+				if (rubricEquiv[3] == loweqv) adjFirst.push(rubric[3]);
+				if (rubricEquiv[4] == loweqv) adjFirst.push(rubric[4]);
+			}
+			else
+			{
+				for (let n = 0; n < 3; n++) if (rubricEquiv[n] == loweqv) adjFirst.push(rubric[n]);
+			}
 		}
 		else if (this.rubricSides[idx])
 		{
-			let loweqv = Number.POSITIVE_INFINITY;
-			for (let n = 0; n < 2; n++) if (rubric[n] >= 0) loweqv = Math.min(loweqv, atomeqv[rubric[n]]);
-			for (let n = 0; n < 2; n++) if (rubric[n] >= 0 && atomeqv[rubric[n]] == loweqv) adjFirst.push(rubric[n]);
+			let loweqv = Math.min(rubricEquiv[0], rubricEquiv[1]);
+			for (let n = 0; n < 2; n++) if (rubricEquiv[n] == loweqv) adjFirst.push(rubric[n]);
 		}
 		else
 		{
-			let loweqv = Number.POSITIVE_INFINITY;
-			for (let n = 0; n < nsz; n++) if (rubric[n] >= 0) loweqv = Math.min(loweqv, atomeqv[rubric[n]]);
-			for (let n = 0; n < nsz; n++) if (rubric[n] >= 0 && atomeqv[rubric[n]] == loweqv) adjFirst.push(rubric[n]);
+			let loweqv = Vec.min(rubricEquiv);
+			for (let n = 0; n < nsz; n++) if (rubricEquiv[n] == loweqv) adjFirst.push(rubric[n]);
 		}
 
 		let bestScore:number[] = null;
@@ -222,6 +227,8 @@ export class DotCompose
 			if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
 		}
 
+		// obtain an array of parity values, which are guaranteed to unique values in the range of [0, size - 1]; their ordering is a canonical sorting based
+		// on atom equivalences/priorities and geometry constraints
 		let parity = Vec.idxSort(bestScore);
 
 		// for tetrahedral or bond-side stereochemistry it is sufficient to represent the parity with a single bit; for the other stereoforms,
@@ -232,28 +239,27 @@ export class DotCompose
 		}
 		else if (this.rubricSquare[idx])
 		{
-			// square pyramidal configurations can have 4 distinct permutation states, based on the scoring & ordering system
-			if (Vec.equals(parity, [0, 1, 2, 3])) return 'q0';
-			else if (Vec.equals(parity, [0, 1, 3, 2])) return 'q1';
-			else if (Vec.equals(parity, [0, 2, 1, 3])) return 'q2';
-			else if (Vec.equals(parity, [0, 2, 3, 1])) return 'q3';
-			//else throw 'Invalid square planar parity: ' + parity + '/score=' + bestScore;
+			// square planar has 3 unique possibilities: full combinatorial is 4x3x2x1; first degree of freedom is collapsed because we always pick the
+			// lowest priority position to start with; the second choice is the position that goes trans to the first selected position, of
+			// which there can be as many as 3; the third choice is degenerate because of the axial symmetry between the trans ligands, and the
+			// priority sorting has already been done, so the option space is now down to 1x3x2x1 = 3
+
+			if (Vec.equals(parity, [0, 2, 1, 3])) return 'q0'; // #1 and #2 are trans to each other
+			else if (Vec.equals(parity, [0, 1, 2, 3])) return 'q1'; // #1 and #3 are trans to each other
+			else if (Vec.equals(parity, [0, 1, 3, 2])) return 'q2'; // #1 and #4 are trans to each other
+			else throw 'Invalid square planar parity: ' + parity + '/score=' + bestScore; // (debug: not possible)
 		}
 		else if (this.rubricBipy[idx])
 		{
 			// trigonal bipyramidal can be distinguished by noting the priority indexing of the two axial ligands, followed by binary parity
 			// indicating the order of the remaining substituents
-			let invpar = [0, 0, 0, 0, 0];
-			for (let n = 0; n < 5; n++) invpar[parity[n]] = n;
-			return 'b' + [invpar[3], invpar[4], Permutation.parityOrder([invpar[0], invpar[1], invpar[2]])].join('');
+			return 'b' + [parity[3], parity[4], Permutation.parityOrder([parity[0], parity[1], parity[2]])].join('');
 		}
 		else if (this.rubricOcta[idx])
 		{
 			// octahedral can be distinguished by noting the two [arbitrary selected] "axial" ligands, followed by the binary parity
 			// indicating the order of the remaining substituents
-			let invpar = [0, 0, 0, 0, 0, 0];
-			for (let n = 0; n < 6; n++) invpar[parity[n]] = n;
-			return 'o' + [invpar[4], invpar[5], Permutation.parityOrder([invpar[0], invpar[1], invpar[2], invpar[3]])].join('');
+			return 'o' + [parity[4], parity[5], Permutation.parityOrder([parity[0], parity[1], parity[2], parity[3]])].join('');
 		}
 		else if (this.rubricSides[idx])
 		{

@@ -45,6 +45,7 @@ export class CoordPanel extends WindowPanel
 	private chkStereo:JQuery;
 	private chkFailOnly:JQuery;
 	private chkInChIFail:JQuery;
+	private chkPermute:JQuery;
 	private inputStartAt:JQuery;
 	private inputEndAt:JQuery;
 	private btnRun:JQuery;
@@ -186,6 +187,7 @@ export class CoordPanel extends WindowPanel
 		this.chkStereo = makeCheck('Evaluate stereochemistry', this.modeStereo);
 		this.chkFailOnly = makeCheck('Show failure cases only', false);
 		this.chkInChIFail = makeCheck('Count standard InChI clashes as failures', false);
+		this.chkPermute = makeCheck('Perform internal permutation checks', true);
 
 		let divRange = $('<div/>').appendTo(spanOptions);
 		this.inputStartAt = makeInput(divRange, 'Start at row #', 5);
@@ -260,6 +262,7 @@ export class CoordPanel extends WindowPanel
 				'stereochemistry': this.chkStereo.prop('checked'),
 				'failOnly': this.chkFailOnly.prop('checked'),
 				'inchiFail': this.chkInChIFail.prop('checked'),
+				'permute': this.chkPermute.prop('checked'),
 				'startAt': parseInt(this.inputStartAt.val().toString()),
 				'endAt': parseInt(this.inputEndAt.val().toString()),
 			};
