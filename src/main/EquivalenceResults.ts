@@ -247,7 +247,8 @@ export class EquivalenceResults
 		for (let n = 0; n < nmol; n++)
 		{
 			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n];
-			let dhash = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry).calculate();
+			let dcalc = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry);
+			let dhash = dcalc.calculate();
 			eqr.dhashList[n] = dhash;
 
 			let [card, spanMol] = this.generateCard(mol, molExpanded, inchi, dhash, 300);
@@ -258,7 +259,7 @@ export class EquivalenceResults
 			spanMol.click(() => new ZoomDotMol(mol).open());
 
 			// drill down on the hash codes in a bit more detail (sanity check)
-			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), molExpanded, dhash);
+			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), molExpanded, dcalc, dhash);
 		}
 		for (let n = 0; n < ndiff; n++)
 		{
@@ -372,7 +373,7 @@ export class EquivalenceResults
 
 	// try some variations on dotpath-hash generation; failure results in a hard crash, since this is a sanity check for the underlying algorithm, not a test of how
 	// well the high level chemistry is working out
-	private investigateHashes(note:string, mol:Molecule, dhash:string)
+	private investigateHashes(note:string, mol:Molecule, dcalc:DotHash, dhash:string)
 	{
 		if (!this.opt.permute) return;
 		if (mol.numAtoms <= 1) return;
@@ -385,13 +386,22 @@ export class EquivalenceResults
 		{
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
 			mol.swapAtoms(a1, a2);
-			let phash = new DotHash(new DotPath(mol), this.opt.stereochemistry).calculate();
+			let pcalc = new DotHash(new DotPath(mol), this.opt.stereochemistry);
+			let phash = pcalc.calculate();
 			if (dhash != phash)
 			{
 				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
 				console.log('ORIGINAL:' + dhash);
 				console.log('PERMUTED:' + phash);
-				console.log('Original Molecule:\n' + origMol);
+
+				let omol = origMol.clone();
+				for (let n = 1; n <= mol.numAtoms; n++)
+				{
+					omol.setAtomMapNum(n, dcalc.getAtomPrio()[n - 1]);
+					mol.setAtomMapNum(n, pcalc.getAtomPrio()[n - 1]);
+				}
+
+				console.log('Original Molecule:\n' + omol);
 				console.log('Permuted Molecule:\n' + mol);
 				throw 'Dot hashes differ';
 			}

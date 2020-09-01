@@ -23,7 +23,7 @@ namespace WebMolKit /* BOF */ {
 	it together into a hashed string with InChI-esque characteristics.
 */
 
-const BONDTYPE_MAP:[DotPathBond, string][] = 
+const BONDTYPE_MAP:[DotPathBond, string][] =
 [
 	[DotPathBond.O0, '*'], [DotPathBond.O01, '*-'], [DotPathBond.O1, '-'], [DotPathBond.O12, '-='],
 	[DotPathBond.O2, '='], [DotPathBond.O23, '=#'], [DotPathBond.O3, '#'], [DotPathBond.O3X, '#+']
@@ -37,7 +37,9 @@ export class DotCompose
 	public rubricSquare:number[][] = null;
 	public rubricBipy:number[][] = null;
 	public rubricOcta:number[][] = null;
-	public rubricSides:number[][] = null;	
+	public rubricSides:number[][] = null;
+
+	public walkouts:number[][] = [];
 
 	// ------------ public methods ------------
 
@@ -135,11 +137,26 @@ export class DotCompose
 			let cc = g.calculateComponents();
 			for (let adj of mol.atomAdjList(idx + 1)) if (mol.atomRingBlock(adj) == mol.atomRingBlock(idx + 1)) blk[adj - 1] = cc[adj - 1];
 		}
-		let blkgrp = new Map<number, number>(); // connected component -> group index				
+		let blkgrp = new Map<number, number>(); // connected component -> group index
 		let ngroups = 0;
 		for (let n of Vec.idxSort(atompri)) if (!blkgrp.has(blk[n])) blkgrp.set(blk[n], ++ngroups);
 
-		let generateParity = (posFirst:number, adjFirst:number):number[] =>
+		// look for previously assigned orders from stereochemistry within the same ring block, which can infer further disambiguation
+		let prevOrder = Vec.numberArray(0, sz);
+		for (let bfs of this.walkouts) Vec.addToArray(prevOrder, bfs);
+		/*for (let i of rubric) if (i >= 0)
+		{
+			for (let bfs of this.walkouts) if (bfs[i] > 0)
+			{
+				if (prevOrder[i] > 0) {prevOrder[i] = 0; break;}
+				prevOrder[i] = bfs[i];
+			}
+		}*/
+//console.log('\n-----FOR IDX:'+idx);
+//for (let bfs of this.walkouts) console.log('BFS:'+bfs);
+//console.log('PREVORDER:'+prevOrder);
+
+		let generateParity = (posFirst:number, adjFirst:number):[number[], number[]] =>
 		{
 			let optionAdj:number[][] = [], optionPri:number[][] = [], optionEqv:number[][] = [];
 			for (let perm of perms)
@@ -162,27 +179,30 @@ export class DotCompose
 				optionEqv.splice(n, 1);
 			}
 
-			if (optionAdj.length == 0) return null;
+			if (optionAdj.length == 0) return [null, null];
 
-			let bestScore:number[] = null;
+			let bestScore:number[] = null, bestAdj:number[] = null;
 
 			for (let o = 0; o < optionAdj.length; o++)
 			{
 				let adj = optionAdj[o], pri = optionPri[o], eqv = optionEqv[o];
-
+//console.log('O='+o+' adj='+adj);
 				let score:number[] = [];
 				for (let n of order)
 				{
-					let gscore = 0;
+					let gscore = 0, pscore = 0;
 					if (adj[n] >= 0 && blk[adj[n]] > 0) gscore = blkgrp.get(blk[adj[n]]) || 0;
-					score.push(sz * eqv[n] + gscore);
+					if (adj[n] >= 0) pscore = prevOrder[adj[n]];
+					score.push(sz * sz * eqv[n] + pscore * sz + gscore);
+//console.log('  n='+n+' eqv='+eqv[n]+' pscore='+pscore+' gscore='+gscore);
 				}
-				for (let n of order) score.push(pri[n]); // priority used for tiebreaker
+				//for (let n of order) score.push(pri[n]); // priority used for tiebreaker
+//console.log('  score='+JSON.stringify(score));
 
-				if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
+				if (bestScore == null || Vec.compareTo(score, bestScore) < 0) [bestScore, bestAdj] = [score, adj];
 			}
 
-			return bestScore.slice(0, nsz);
+			return [bestScore.slice(0, nsz), bestAdj];
 		}
 
 		// evaluate all equivalent starting points
@@ -219,13 +239,14 @@ export class DotCompose
 			for (let n = 0; n < nsz; n++) if (rubricEquiv[n] == loweqv) adjFirst.push(rubric[n]);
 		}
 
-		let bestScore:number[] = null;
+		let bestScore:number[] = null, bestAdj:number[] = null;
 		for (let n = 0; n < adjFirst.length; n++)
 		{
-			let score = generateParity(posFirst, adjFirst[n]);
+			let [score, adj] = generateParity(posFirst, adjFirst[n]);
 			if (!score) continue;
-			if (bestScore == null || Vec.compareTo(score, bestScore) < 0) bestScore = score;
+			if (bestScore == null || Vec.compareTo(score, bestScore) < 0) [bestScore, bestAdj] = [score, adj];
 		}
+		this.walkStereoOutward(idx, bestAdj);
 
 		// obtain an array of parity values, which are guaranteed to unique values in the range of [0, size - 1]; their ordering is a canonical sorting based
 		// on atom equivalences/priorities and geometry constraints
@@ -271,6 +292,64 @@ export class DotCompose
 		//return parity.toString();
 
 		return null;
+	}
+
+	// given that a stereocentre (idx) has been assigned with neighbours in a particular order, in the event that this is a ring block, there could be otherwise
+	// indistinguishable stereocentres locked in place; send out a breadth-first-scan to label these
+	// NOTE: this has some quite fussy stop-conditions to avoid breaking what otherwise works; if there are 3-or-more compositionally identical stereoisomers in a ring block, 
+	// it introduces an ordering problem which would cause a failure
+	private walkStereoOutward(idx:number, adj:number[]):void
+	{
+//console.log('STEREO:'+idx+' adj:'+adj);
+		const {mol} = this.dot, na = mol.numAtoms;
+		const {atomeqv} = this;
+		let rblk = mol.atomRingBlock(idx + 1);
+		if (rblk == 0) return;
+
+		let eqvsz = 0;
+		for (let n = 1; n <= na; n++) if (mol.atomRingBlock(n) == rblk && atomeqv[n - 1] == atomeqv[idx]) eqvsz++;
+		if (eqvsz != 2) return;
+		//for (let i of adj) if (atomeqv[idx] == atomeqv[i]) return;
+
+		let bfs = Vec.numberArray(0, na);
+		let visited = Vec.booleanArray(false, na);
+		visited[idx] = true;
+		for (let n = 0; n < adj.length; n++) if (adj[n] >= 0 && mol.atomRingBlock(adj[n] + 1) == rblk) 
+		{
+			bfs[adj[n]] = n + 1;
+			visited[adj[n]] = true;
+		}
+
+		while (true)
+		{
+			let modified = false;
+
+			/*let newvisited = 
+			for (let i = 0; i < na; i++) if (!visited[i]) if (mol.atomRingBlock(i + 1) == rblk && bfs[i] == 0)
+			{
+				for (let a of mol.atomAdjList(i + 1)) bfs[i] += bfs[a - 1];
+				if (bfs[i] > 0) visited[i] = modified = true;
+			}*/
+			let newvisited = visited.slice(0);
+			for (let n = 1; n <= mol.numBonds; n++)
+			{
+				let i1 = mol.bondFrom(n) - 1, i2 = mol.bondTo(n) - 1;
+				if (visited[i1] && !visited[i2]) {}
+				else if (visited[i2] && !visited[i1]) [i1, i2] = [i2, i1];
+				else continue;
+				if (mol.atomRingBlock(i2 + 1) != rblk) continue;
+
+				bfs[i2] += bfs[i1];
+				newvisited[i2] = true;
+				modified = true;
+			}
+			
+			if (!modified) break;
+			visited = newvisited;
+		}
+
+//console.log('  bfs='+bfs);
+		this.walkouts.push(bfs);
 	}
 
 	// traverses the structure to generate some number of paths that traverses all of the bonds, in a canonical order, that tries to minimise

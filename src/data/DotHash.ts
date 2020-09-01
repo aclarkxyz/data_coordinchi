@@ -70,6 +70,9 @@ export class DotHash
 		return this.hash;
 	}
 
+	public getAtomPrio():number[] {return this.atompri;}
+	public getAtomEquiv():number[] {return this.atomeqv;}
+
 	// ------------ private methods ------------
 
 	// perform any necessary adjustments prior to creating the path
@@ -419,7 +422,7 @@ export class DotHash
 	// find the lowest degenerate priority, and adjust it
 	private bumpPriority():void
 	{
-		// part 1: consider stereo-actives first, and look for ways to disambiguate neighbours based on local geometry
+		// part 1: consider stereo-actives and look for ways to disambiguate neighbours based on local geometry
 		const sz = this.atompri.length;
 		let pri = this.atompri.slice(0);
 
@@ -538,7 +541,11 @@ export class DotHash
 			for (let i = 1; i < grp; i++)
 			{
 				let walk = this.walkGraph(idx[n + i]);
-				if (walk.length < bestWalk.length) {bestN = n + i; bestWalk = walk;}
+				if (walk.length < bestWalk.length) 
+				{
+					bestN = n + i;
+					bestWalk = walk;
+				}
 				else if (walk.length == bestWalk.length)
 				{
 					for (let j = 0; j < walk.length; j++)
@@ -553,7 +560,6 @@ export class DotHash
 					}
 				}
 			}
-
 			for (; n < sz; n++) if (n != bestN) pri[idx[n]]++;
 			break;
 		}
@@ -580,24 +586,43 @@ export class DotHash
 				else if (!mask[i1] && mask[i2]) [i1, i2] = [i2, i1];
 				else continue;
 
-				let stereoPri = this.stereoPriority(i2, pri, mask);
-
-				shell.push([bondType[b - 1], pri[i2], stereoPri]);
+				shell.push([bondType[b - 1], pri[i2], ...this.stereoNeighbours(i2)]);
 				maskX[i2] = true;
 			}
 			for (let i = 0; i < sz; i++) mask[i] = maskX[i];
 
 			this.sortSequences(shell);
-			for (let seq of shell) path.push(seq[0], seq[1], seq[2]);
-			path.push(-1);
+			for (let seq of shell) path.push(...seq, -1);
+			path.push(-2);
 		}
-
 		return path;
+	}
+
+	// returns the canonically smallest list of neighbour priorities that are compatible with the rubric, plus a type indicator: this can collapse
+	// walk sequences that differ only by stereochemistry
+	private stereoNeighbours(idx:number):number[]
+	{
+		let type:number, rubric:number[] = null, perms:number[][] = null;
+		if (this.rubricTetra[idx]) [type, rubric, perms] = [1, this.rubricTetra[idx], Stereochemistry.RUBRIC_EQUIV_TETRA];
+		else if (this.rubricSquare[idx]) [type, rubric, perms] = [2, this.rubricSquare[idx], Stereochemistry.RUBRIC_EQUIV_SQUARE];
+		else if (this.rubricBipy[idx]) [type, rubric, perms] = [3, this.rubricBipy[idx], Stereochemistry.RUBRIC_EQUIV_BIPY];
+		else if (this.rubricOcta[idx]) [type, rubric, perms] = [4, this.rubricOcta[idx], Stereochemistry.RUBRIC_EQUIV_OCTA];
+		else return [];
+
+		let sz = this.atompri.length;
+		let rubricPri = rubric.map((i) => i < 0 ? 0 : this.atompri[i]);
+		let bestPri:number[] = null;
+		for (let perm of perms)
+		{
+			let pri = Vec.idxGet(rubricPri, perm);
+			if (bestPri == null || Vec.compareTo(pri, bestPri) < 0) bestPri = pri;
+		}
+		return [type, ...bestPri];
 	}
 
 	// for a given node index at some point along a breadth first walk, provide a differentiator based on stereo rubric: the mask indicates which of the atoms have
 	// already been visited, and these are used as a priority
-	private stereoPriority(idx:number, pri:number[], mask:boolean[]):number
+	/*private stereoPriority(idx:number, pri:number[], mask:boolean[]):number
 	{
 		let rubric:number[] = null, perms:number[][] = null;
 		if (this.rubricTetra[idx]) [rubric, perms] = [this.rubricTetra[idx], Stereochemistry.RUBRIC_EQUIV_TETRA];
@@ -629,7 +654,7 @@ export class DotHash
 			bump *= 2;
 		}
 		return stereoPri;
-	}
+	}*/
 
 	// for an array whereby each item is an array of numbers (arbitrary length), sorts these into a unique set and translates into an overall index, starting at 1
 	private assignPriority(priseq:number[][]):number[]
