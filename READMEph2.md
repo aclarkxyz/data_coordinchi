@@ -18,6 +18,11 @@ Comments from the previous phase are addressed in a separate document (non-publi
 
 The deliverable for Phase 2 is a proposal for consideration to be incorporated into the official InChI technology suite. The recommendation is to implement the algorithm as part of the same platform as the standard InChI generator, and keep the coordination layer separate from the standard InChI molecular description. If anyone wishes to explore ways to enhance the core InChI generator to handle coordination complexes, then the training data is available to provide authoritative evidence of the efficacy of any such attempt.
 
+Web-browsable versions of the results can be seen here:
+
+* [equivalences](docs/output-equiv-20200902.html)
+* [stereochemistry](docs/output-stereo-20200902.html)
+
 ## Changes
 
 Since [Phase 1](README.md), the following modifications have been made.
