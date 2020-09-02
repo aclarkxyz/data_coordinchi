@@ -22,7 +22,7 @@ namespace WebMolKit /* BOF */ {
 */
 
 // normal allowed-valence list
-const VALENCES:{[id:string] : number[]} =
+const VALENCES:Record<string, number[]> =
 {
 	'H': [1],
 	'C': [4],
@@ -48,7 +48,7 @@ const VALENCES:{[id:string] : number[]} =
 };
 
 // oxidised valence options: these are only allowed when an atom has oxygens or fluorines
-const OXVALENCES:{[id:string] : number[]} =
+const OXVALENCES:Record<string, number[]> =
 {
 	'P': [7],
 	'Cl': [3, 5, 7],
@@ -59,7 +59,7 @@ const OXVALENCES:{[id:string] : number[]} =
 };
 
 // valence options available only in cationic form: lower than usual valences are seen in some cases (e.g. carbocations)
-const CATVALENCES:{[id:string] : number[]} =
+const CATVALENCES:Record<string, number[]> =
 {
 	'C': [2],
 	'Si': [2],
@@ -67,7 +67,7 @@ const CATVALENCES:{[id:string] : number[]} =
 };
 
 // list of normal oxidation states for metals; these have quite a few exceptions, so they can only be considered guides
-const OXSTATES:{[id:string] : number[]} =
+const OXSTATES:Record<string, number[]> =
 {
 	'Li': [1],
 	'Na': [1],
@@ -122,24 +122,6 @@ const OXSTATES:{[id:string] : number[]} =
 	'Cd': [2],
 	'Hg': [2],
 };
-
-/*
-public static ELEMENTS =
-[
-	null,
-	'H',                                                                                 'He',
-	'Li','Be',                                                  'B', 'C', 'N', 'O', 'F', 'Ne',
-	'Na','Mg',                                                  'Al','Si','P', 'S', 'Cl','Ar',
-	'K', 'Ca','Sc','Ti','V' ,'Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr',
-	'Rb','Sr','Y', 'Zr','Nb','Mo','Tc','Ru','Rh','Pd','Ag','Cd','In','Sn','Sb','Te','I', 'Xe',
-	'Cs','Ba',
-			'La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb',
-			  'Lu','Hf','Ta','W', 'Re','Os','Ir','Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn',
-	'Fr','Ra',
-			'Ac','Th','Pa','U', 'Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No',
-					'Lr','Rf','Db','Sg','Bh','Hs','Mt','Ds','Rg','Cn'
-];
-*/
 
 export const enum AnalyseMoleculeType
 {

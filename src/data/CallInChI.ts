@@ -29,10 +29,12 @@ export interface CallInChIResult
 export class CallInChI
 {
 	public isAvailable = false; // check this to see if it seems possible
+	private process:any;
+	private listener:(inchi:string) => void = null;
 
 	// ------------ public methods ------------
 
-	constructor(private execPath:string)
+	constructor(private execPath:string, private withStereo:boolean)
 	{
 		if (!execPath) return;
 
@@ -46,37 +48,78 @@ export class CallInChI
 		catch (ex) {} // not available
 	}
 
-	// fire up the executable and interpret the result; throws an exception if something went wrong
-	public calculate(mol:Molecule):CallInChIResult
+	public async calculate(molList:Molecule[]):Promise<string[]>
 	{
-		if (!this.isAvailable) throw 'The InChI generator is unconfigured or unavailable.';
+		if (!this.isAvailable) throw 'InChI unavailable';
+		if (this.process) throw 'InChI is already in use';
 
-		mol = mol.clone();
-		MolUtil.expandAbbrevs(mol, false);
-		MolUtil.createHydrogens(mol, true);
+		this.startProcess();
 
-		const remote = require('electron').remote;
-		const proc = require('child_process'), path = require('path');
-
-		let cmd = this.execPath.replace(/ /g, '\\\ '); // escape spaces
-		let writer = new MDLMOLWriter(mol);
-		let mdlmol = writer.write();
-		let result = proc.spawnSync(cmd, ['-STDIO', '-AuxNone', '-NoLabels', '-Key', '-DoNotAddH', '-SNon', '-FixedH', '-RecMet'], {'input': mdlmol});
-		let raw = result.stdout.toString(), bits = raw.split('\n')
-
-		if (bits.length < 2 || !bits[0].startsWith('InChI=1'))
+		return new Promise<string[]>((resolve, reject) =>
 		{
-			console.log('** InChI generation failure');
-			console.log('Output:\n' + raw);
-			console.log('Input Molecule:\n' + mol);
-			console.log('Input Molfile:\n' + mdlmol);
-			throw 'InChI generation failed';
-		}
-		return {'inchi': bits[0], 'inchiKey': bits[1]};
+			let inchiList:string[] = [];
+			this.listener = (inchi:string) =>
+			{
+				inchiList.push(inchi);
+				if (inchiList.length == molList.length)
+				{
+					this.process = null;
+					resolve(inchiList);
+				}
+			};
+			for (let mol of molList)
+			{
+				let feed = mol.clone();
+				MolUtil.expandAbbrevs(feed, false);
+				MolUtil.createHydrogens(feed, true);
+				for (let n = 1; n <= feed.numBonds; n++) if (feed.bondOrder(n) == 0) feed.setBondOrder(n, 1);
+				let wtr = new MDLMOLWriter(feed);
+				wtr.enhancedFields = false;
+				let mdl = wtr.write();
+				this.process.stdin.write(mdl + '\n$$$$\n');
+			}
+			this.process.stdin.end();
+		});
 	}
 
 	// ----------------- private methods -----------------
 
+	private startProcess():void
+	{
+		const childproc = require('child_process'), path = require('path');
+
+		let cmd = this.execPath.replace(/ /g, '\\\ '); // escape spaces
+		let args = ['-STDIO', /*'-AuxNone',*/ '-NoLabels', /*'-Key',*/ '-DoNotAddH', '-FixedH', '-RecMet'];
+		if (!this.withStereo) args.push('-SNon');
+		let opt = {'stdio': ['pipe', 'pipe', 'pipe']};
+
+		let lines:string[] = [];
+		let buffer = '';
+
+		this.process = childproc.spawn(cmd, args, opt);
+
+		this.process.stdout.on('data', (chunk:Buffer | string) =>
+		{
+			buffer += chunk.toString();
+			while (true)
+			{
+				let idx = buffer.indexOf('\n');
+				if (idx < 0) break;
+				lines.push(buffer.substring(0, idx));
+				buffer = buffer.substring(idx + 1);
+			}
+
+			while (lines.length >= 2)
+			{
+				this.listener(lines[0]);
+				lines.splice(0, 2);
+			}
+		});
+		this.process.stderr.on('data', (chunk:Buffer | string) =>
+		{
+			//for (let line of (chunk.toString()).split('\n')) console.log('ERR: ' + line);
+		});
+	}
 }
 
 /* EOF */ }

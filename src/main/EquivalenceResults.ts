@@ -35,29 +35,40 @@ namespace WebMolKit /* BOF */ {
 
 interface EquivalenceRow
 {
+	// molecule(s) expected to be the same
 	molList:Molecule[];
 	molExpanded:Molecule[];
 	inchiList:string[];
 	dhashList:string[];
+
+	// molecule(s) expected to be different (in same row for clarity)
+	diffList:Molecule[];
+	diffExpanded:Molecule[];
+	diffInChI:string[];
+	diffDHash:string[];
+
+	rubric:string;
 }
 
 export interface EquivalenceResultsOptions
 {
+	stereochemistry:boolean; // if true, stereoisomers are disambiguated
 	failOnly:boolean; // only render rows that have a failure case of some kind
 	inchiFail:boolean; // record failure when standard InChI fails to achieve desired effect (which happens a lot)
+	permute:boolean; // if true, runs permutation checks on the input, for extra surety
 	startAt:number; // first row (1-based)
+	endAt:number; // last row (1-based)
 }
 
 export class EquivalenceResults
 {
 	private cancelled = false;
-	private rosterInChI:number[][] = []; // array of [row, molcol, inchicol]
 
 	private divSummary:JQuery;
 	private divContent:JQuery;
 	private tableContent:JQuery;
 	private tableRows:JQuery[] = [];
-	
+
 	private numPassed = 0;
 	private numFailed = 0;
 	private rowsFailed:number[] = [];
@@ -67,7 +78,8 @@ export class EquivalenceResults
 	private paraFailures:JQuery;
 
 	private colMol:number[] = [];
-	private colInChI:number[] = [];
+	private colDiff:number[] = [];
+	private colRubric = -1
 	private rows:EquivalenceRow[] = [];
 
 	protected policy:RenderPolicy;
@@ -80,13 +92,13 @@ export class EquivalenceResults
 
 	public render(parentSummary:JQuery, parentContent:JQuery):void
 	{
-		this.divSummary = $('<div></div>').appendTo(parentSummary);
-		this.divContent = $('<div></div>').appendTo(parentContent);
+		this.divSummary = $('<div/>').appendTo(parentSummary);
+		this.divContent = $('<div/>').appendTo(parentContent);
 
 		this.policy = RenderPolicy.defaultColourOnWhite();
 		this.policy.data.pointScale = 15;
 
-		this.startAnalysis();
+		(async () => await this.startAnalysis())();
 	}
 
 	public cancel():void
@@ -97,74 +109,54 @@ export class EquivalenceResults
 	// ------------ private methods ------------
 
 	// get things setup, and start the chain of processing events
-	private startAnalysis():void
+	private async startAnalysis():Promise<void>
 	{
 		// setup the summary panel
-		let divStats = $('<div></div>').appendTo(this.divSummary);
+		let divStats = $('<div/>').appendTo(this.divSummary);
 		divStats.append('Passed ');
-		this.spanPassed = $('<span></span>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
+		this.spanPassed = $('<span/>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
 		divStats.append(' Failed ');
-		this.spanFailed = $('<span></span>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
+		this.spanFailed = $('<span/>').appendTo(divStats).css({'border': '1px solid black', 'background-color': '#E0E0E0', 'padding': '0 0.25em 0 0.25em'});
 		divStats.append(' ');
-		this.spanStatus = $('<span></span>').appendTo(divStats);
-		this.paraFailures = $('<div></div>').appendTo(this.divSummary);
+		this.spanStatus = $('<span/>').appendTo(divStats);
+		this.paraFailures = $('<div/>').appendTo(this.divSummary);
 		this.updateStats();
 
 		// setup the table
 		for (let n = 0; n < this.ds.numCols; n++) if (this.ds.colType(n) == DataSheetColumn.Molecule)
 		{
-			this.colMol.push(n);
-			this.colInChI.push(this.ds.ensureColumn(this.ds.colName(n) + 'InChI', DataSheetColumn.String, 'Computed InChI string'));
+			let cname = this.ds.colName(n);
+			if (!cname.startsWith('Diff'))
+				this.colMol.push(n);
+			else
+				this.colDiff.push(n);
 		}
+		this.colRubric = this.ds.findColByName('Rubric', DataSheetColumn.String);
 
-		if (this.callInChI.isAvailable) for (let r = 0; r < this.ds.numRows; r++) for (let n = 0; n < this.colMol.length; n++)
-		{
-			let c1 = this.colMol[n], c2 = this.colInChI[n];
-			if (this.ds.notNull(r, c1) && this.ds.isNull(r, c2)) this.rosterInChI.push([r, c1, c2]);
-		}
-
-		setTimeout(() => this.calcNextInChI(), 0);
-	}
-
-	// process the next rostered InChI, or continue to the next step
-	private calcNextInChI():void
-	{
-		if (this.cancelled)
-		{
-			this.spanStatus.text('Cancelled');
-			return;
-		}
-
-		if (this.rosterInChI.length == 0)
-		{
-			this.beginProcessing();
-			return;
-		}
-
-		this.spanStatus.text('InChI (' + this.rosterInChI.length + ')');
-
-		let [row, cm, ci] = this.rosterInChI.shift();
-		let mol = this.ds.getMolecule(row, cm);
-		let inchi = this.callInChI.calculate(mol).inchi;
-		this.ds.setString(row, ci, inchi);
-
-		setTimeout(() => this.calcNextInChI(), 0);
-	}
-
-	// begin the main analysis process
-	private beginProcessing():void
-	{
 		this.spanStatus.text('Preprocessing');
+
+		let rosterMol:Molecule[] = [], rosterList:string[][] = [];
 
 		for (let n = 0; n < this.ds.numRows; n++)
 		{
-			let eqr:EquivalenceRow = {'molList': [], 'molExpanded': [], 'inchiList': [], 'dhashList': []};
+			let eqr:EquivalenceRow =
+			{
+				'molList': [],
+				'molExpanded': [],
+				'inchiList': [],
+				'dhashList': [],
+				'diffList': [],
+				'diffExpanded': [],
+				'diffInChI': [],
+				'diffDHash': [],
+				'rubric': null,
+			};
 			for (let i = 0; i < this.colMol.length; i++) if (this.ds.notNull(n, this.colMol[i]))
 			{
 				let mol = this.ds.getMolecule(n, this.colMol[i]);
 				let molExpanded = mol.clone();
-				MolUtil.expandAbbrevs(molExpanded, false);
-				
+				MolUtil.expandAbbrevs(molExpanded, true);
+
 				// temporary bandaid: take the CSD-imported aromatic bond type and turn it into the "foreign" designation, which is used by dotpath
 				for (let b = 1; b <= molExpanded.numBonds; b++) if (molExpanded.bondExtra(b).indexOf('xAromatic') >= 0)
 				{
@@ -175,13 +167,38 @@ export class EquivalenceResults
 
 				eqr.molList.push(mol);
 				eqr.molExpanded.push(molExpanded);
-				eqr.inchiList.push(this.ds.getString(n, this.colInChI[i]));
+
+				rosterMol.push(molExpanded);
+				rosterList.push(eqr.inchiList);
+
 				eqr.dhashList.push(null);
 			}
+			for (let i = 0; i < this.colDiff.length; i++) if (this.ds.notNull(n, this.colDiff[i]))
+			{
+				let mol = this.ds.getMolecule(n, this.colDiff[i]);
+				let molExpanded = mol.clone();
+				MolUtil.expandAbbrevs(molExpanded, true);
+
+				eqr.diffList.push(mol);
+				eqr.diffExpanded.push(molExpanded);
+
+				rosterMol.push(molExpanded);
+				rosterList.push(eqr.diffInChI);
+
+				eqr.diffDHash.push(null);
+			}
+			if (this.colRubric >= 0) eqr.rubric = this.ds.getString(n, this.colRubric) || '';
 			this.rows.push(eqr);
 		}
 
-		this.tableContent = $('<table></table>').appendTo(this.divContent);
+		if (this.callInChI.isAvailable)
+		{
+			this.spanStatus.text('Calculating InChI');
+			let rosterInChI = await this.callInChI.calculate(rosterMol);
+			for (let n = 0; n < rosterInChI.length; n++) rosterList[n].push(rosterInChI[n]);
+		}
+
+		this.tableContent = $('<table/>').appendTo(this.divContent);
 
 		let firstRow = this.opt.startAt - 1;
 		if (!(firstRow >= 0)) firstRow = 0;
@@ -197,28 +214,41 @@ export class EquivalenceResults
 			return;
 		}
 
-		if (row >= this.ds.numRows)
+		if (row >= this.ds.numRows || (this.opt.endAt > 0 && row >= this.opt.endAt))
 		{
 			this.spanStatus.text('Finished');
 			this.callbackDone();
 			return;
 		}
 
-		let tr = $('<tr></tr>');
-		this.tableRows.push(tr);
-		let th = $('<th></th>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top'});
+		let tr = $('<tr/>');
+		this.tableRows[row] = tr;
+		let th = $('<th/>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top'});
 		th.text('Row ' + (row + 1));
 
-		let td = $('<td></td>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top', 'border': '1px solid #808080', 'background-color': '#F0F0F0'});
-		let flex = $('<div></div>').appendTo(td);
+		let td = $('<td/>').appendTo(tr).css({'text-align': 'left', 'vertical-align': 'top', 'border': '1px solid #808080', 'background-color': '#F0F0F0'});
+		let flex = $('<div/>').appendTo(td);
 		flex.css({'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'flex-start', 'align-items': 'flex-start'});
 
 		let eqr = this.rows[row];
-		let nmol = eqr.molList.length;
+
+		if (eqr.rubric != null)
+		{
+			let strRubric = this.assembleRubric(eqr.molList[0]);
+			if (strRubric != eqr.rubric)
+			{
+				console.log('** RUBRIC mismatch for row#' + (row + 1) + ' rubric:');
+				console.log('    expected: ' + eqr.rubric);
+				console.log('         got: ' + strRubric);
+			}
+		}
+
+		let nmol = eqr.molList.length, ndiff = eqr.diffList.length;
 		for (let n = 0; n < nmol; n++)
 		{
 			let mol = eqr.molList[n], molExpanded = eqr.molExpanded[n], inchi = eqr.inchiList[n];
-			let dhash = new DotHash(new DotPath(molExpanded)).calculate();
+			let dcalc = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry);
+			let dhash = dcalc.calculate();
 			eqr.dhashList[n] = dhash;
 
 			let [card, spanMol] = this.generateCard(mol, molExpanded, inchi, dhash, 300);
@@ -229,10 +259,15 @@ export class EquivalenceResults
 			spanMol.click(() => new ZoomDotMol(mol).open());
 
 			// drill down on the hash codes in a bit more detail (sanity check)
-			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), molExpanded, dhash);
+			this.investigateHashes('Row ' + (row + 1) + '/Molecule ' + (n + 1), molExpanded, dcalc, dhash);
+		}
+		for (let n = 0; n < ndiff; n++)
+		{
+			let molExpanded = eqr.diffExpanded[n];
+			eqr.diffDHash[n] = new DotHash(new DotPath(molExpanded), this.opt.stereochemistry).calculate();
 		}
 
-		// compare InChI's within same row: they are expected to be the same
+		// compare equivalents within same row
 		let hasProblem = false;
 		for (let i = 0; i < nmol - 1; i++) for (let j = i + 1; j < nmol; j++)
 		{
@@ -244,24 +279,52 @@ export class EquivalenceResults
 				let mol1 = eqr.molList[i], mol2 = eqr.molList[j];
 				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = eqr.molExpanded[j];
 				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
-				
-				let dualCard = $('<div></div>').appendTo(flex);
+
+				let dualCard = $('<div/>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
 
-				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
+				let divHdr = $('<div/>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
 				if (badInChI && badHash) divHdr.text('InChI & dots both different');
 				else if (badInChI) divHdr.text('InChI codes differ');
 				else if (badHash) divHdr.text('dot-hashes differ');
 
-				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
+				let divMols = $('<div/>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
 				divMols.append(card2);
 			}
 			if (badHash || (badInChI && this.opt.inchiFail)) hasProblem = true;
 		}
 
-		// compare InChI's between different rows: they are expected to be different
+		// compare the reference molecule with any "differents" within the same row
+		for (let n = 0; n < ndiff; n++)
+		{
+			let inchi1 = eqr.inchiList[0], inchi2 = eqr.diffInChI[n];
+			let dhash1 = eqr.dhashList[0], dhash2 = eqr.diffDHash[n];
+			let badInChI = inchi1 && inchi2 && inchi1 == inchi2, badHash = dhash1 == dhash2;
+			if (badInChI || badHash)
+			{
+				let mol1 = eqr.molList[0], mol2 = eqr.diffList[n];
+				let molExpanded1 = eqr.molExpanded[0], molExpanded2 = eqr.diffExpanded[n];
+				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
+
+				let dualCard = $('<div/>').appendTo(flex);
+				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
+				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800000'});
+
+				let divHdr = $('<div/>').appendTo(dualCard).css({'text-align': 'center', 'color': '#FF0000'});
+				if (badInChI && badHash) divHdr.text('InChI & dots both same');
+				else if (badInChI) divHdr.text('InChI codes same');
+				else if (badHash) divHdr.text('dot-hashes same');
+
+				let divMols = $('<div/>').appendTo(dualCard).css({'text-align': 'center'});
+				divMols.append(card1);
+				divMols.append(card2);
+			}
+			if (badHash || (badInChI && this.opt.inchiFail)) hasProblem = true;
+		}
+
+		// compare between different rows: they are expected to be different
 		for (let n = 0; n < this.rows.length; n++) if (n != row)
 			for (let i = 0; i < nmol; i++) for (let j = 0; j < this.rows[n].molList.length; j++)
 		{
@@ -276,18 +339,18 @@ export class EquivalenceResults
 				let mol1 = eqr.molList[i], mol2 = other.molList[j];
 				let molExpanded1 = eqr.molExpanded[i], molExpanded2 = other.molExpanded[j];
 				let card1 = this.generateCard(mol1, molExpanded1, inchi1, dhash1, 200)[0], card2 = this.generateCard(mol2, molExpanded2, inchi2, dhash2, 200)[0];
-				
-				let dualCard = $('<div></div>').appendTo(flex);
+
+				let dualCard = $('<div/>').appendTo(flex);
 				dualCard.css({'display': 'inline-block', 'margin': '0.5em'});
 				dualCard.css({'background-color': 'white', 'border': '1px solid black', 'box-shadow': '3px 3px 5px #800080'});
 
-				let divHdr = $('<div></div>').appendTo(dualCard).css({'text-align': 'center', 'color': '#800080'});
+				let divHdr = $('<div/>').appendTo(dualCard).css({'text-align': 'center', 'color': '#800080'});
 				let rowstr = ' [' + (row + 1) + ',' + (n + 1) + ']';
 				if (badInChI && badHash) divHdr.text('InChI & dots falsely equivalent' + rowstr);
 				else if (badInChI) divHdr.text('InChI codes falsely equivalent' + rowstr);
 				else if (badHash) divHdr.text('Dot-hashes falsely equivalent' + rowstr);
 
-				let divMols = $('<div></div>').appendTo(dualCard).css({'text-align': 'center'});
+				let divMols = $('<div/>').appendTo(dualCard).css({'text-align': 'center'});
 				divMols.append(card1);
 				divMols.append(card2);
 			}
@@ -297,7 +360,7 @@ export class EquivalenceResults
 		// by default add the row, unless the user has asked to skip failures
 		if (hasProblem || !this.opt.failOnly) this.tableContent.append(tr);
 
-		if (hasProblem) 
+		if (hasProblem)
 		{
 			this.numFailed++;
 			this.rowsFailed.push(row);
@@ -310,10 +373,12 @@ export class EquivalenceResults
 
 	// try some variations on dotpath-hash generation; failure results in a hard crash, since this is a sanity check for the underlying algorithm, not a test of how
 	// well the high level chemistry is working out
-	private investigateHashes(note:string, mol:Molecule, dhash:string)
+	private investigateHashes(note:string, mol:Molecule, dcalc:DotHash, dhash:string)
 	{
+		if (!this.opt.permute) return;
 		if (mol.numAtoms <= 1) return;
 
+		let origMol = mol;
 		mol = mol.clone();
 		mol.keepTransient = true; // have some that we want to keep
 
@@ -321,12 +386,23 @@ export class EquivalenceResults
 		{
 			let a1 = (n % mol.numAtoms) + 1, a2 = ((n + 3) % mol.numAtoms) + 1;
 			mol.swapAtoms(a1, a2);
-			let phash = new DotHash(new DotPath(mol)).calculate();
-			if (dhash != phash) 
+			let pcalc = new DotHash(new DotPath(mol), this.opt.stereochemistry);
+			let phash = pcalc.calculate();
+			if (dhash != phash)
 			{
 				console.log('CONTENT:' + note + '/Iteration=' + (n + 1) + '/Perm=' + a1 + ':' + a2);
 				console.log('ORIGINAL:' + dhash);
 				console.log('PERMUTED:' + phash);
+
+				let omol = origMol.clone();
+				for (let n = 1; n <= mol.numAtoms; n++)
+				{
+					omol.setAtomMapNum(n, dcalc.getAtomPrio()[n - 1]);
+					mol.setAtomMapNum(n, pcalc.getAtomPrio()[n - 1]);
+				}
+
+				console.log('Original Molecule:\n' + omol);
+				console.log('Permuted Molecule:\n' + mol);
 				throw 'Dot hashes differ';
 			}
 		}
@@ -354,11 +430,32 @@ export class EquivalenceResults
 			for (let row of this.rowsFailed)
 			{
 				this.paraFailures.append(' ');
-				let span = $('<span class="hover_action"></span>').appendTo(this.paraFailures);
+				let span = $('<span class="hover_action"/>').appendTo(this.paraFailures);
 				span.text((row + 1).toString());
 				span.click(() => $('html, body').animate({'scrollTop': this.tableRows[row].offset().top}, 500));
 			}
 		}
+	}
+
+	// produces a string that describes the stereochemistry rubric
+	private assembleRubric(mol:Molecule):string
+	{
+		let bits:string[] = [];
+		let meta = MetaMolecule.createRubric(mol);
+
+		for (let n = 1; n <= mol.numAtoms; n++)
+		{
+			if (meta.rubricTetra[n - 1]) bits.push(`[T${n}:${meta.rubricTetra[n - 1]}]`);
+			else if (meta.rubricSquare[n - 1]) bits.push(`[P${n}:${meta.rubricSquare[n - 1]}]`);
+			else if (meta.rubricBipy[n - 1]) bits.push(`[B${n}:${meta.rubricBipy[n - 1]}]`);
+			else if (meta.rubricOcta[n - 1]) bits.push(`[O${n}:${meta.rubricOcta[n - 1]}]`);
+		}
+		for (let n = 1; n <= mol.numBonds; n++) if (meta.rubricSides[n - 1] && !mol.bondInRing(n))
+		{
+			bits.push(`[S${n}:${meta.rubricSides[n - 1]}]`);
+		}
+
+		return bits.join(';');
 	}
 }
 

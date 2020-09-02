@@ -5,6 +5,8 @@
 
 ## Background
 
+**Addendum**: This document describes Phase 1 of the project. Phase 2 [is described here](READMEph2.md).
+
 The [InChI identifier](https://www.inchi-trust.org) is a canonical unique string that represents a chemical structure. The string is generated using an algorithm that _guarantees_ that multiple different ways of expressing the same chemical structure result in the _same_ InChI identifier. This guarantee has a number of caveats, but the general rule is that for organic compounds that are stable in aqueous solution and follow conventional variants of Lewis octet rule, the canonical properties of InChI are fit for purpose and have fewer edge cases than any widely adopted alternative technologies.
 
 Unfortunately this does not hold when expanding out into the universe of chemistry beyond the organic subset. The biggest and most obvious problem with the InChI algorithm is that it treats metals by disconnecting them and converting into a salt form prior to generating the identifier. The loss of metal-ligand connectivity destroys essential information, and it means that two structures with the same mix of metals & ligands will imply the same unique identifier, even if their coordination mode is different.
@@ -284,3 +286,7 @@ $ electron app data/equivalences.ds --inchi ~/bin/inchi-1
 ### 7. Visual Studio Code
 
 This last step is only important to anyone who wants to contribute to development of the project. The [Visual Studio Code](https://code.visualstudio.com/) IDE is free and lightweight (not to be confused with _Visual Studio_) and is the preferred method for editing code. It also allows the **Coordination InChI** tool to be launched with a couple of keystrokes.
+
+### 8. Next Section
+
+See [Phase 2](READMEph2.md) for continuation.

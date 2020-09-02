@@ -86,26 +86,26 @@ export class ZoomDotMol extends Dialog
 
 		let w = Math.ceil(gfx.width), h = Math.ceil(gfx.height);
 
-		let div = $('<div></div>').appendTo(this.body()).css({'text-align': 'center'});
-		this.divOutline = $('<div></div>').appendTo(div);
+		let div = $('<div/>').appendTo(this.body()).css({'text-align': 'center'});
+		this.divOutline = $('<div/>').appendTo(div);
 		this.divOutline.css({'display': 'inline-block', 'position': 'relative', 'width': `${w}px`, 'height': `${h}px`});
 
 		// draw all paths faintly
-		let spanBackdrop = $('<div></div>').appendTo(this.divOutline);
+		let spanBackdrop = $('<div/>').appendTo(this.divOutline);
 		spanBackdrop.css({'position': 'absolute', 'left': '0px', 'top': '0px'});
 		$(this.renderOutlines(this.outlines, w, h, 0x808080, MetaVector.NOCOLOUR, false).createSVG()).appendTo(spanBackdrop);
 
 		// draw each path as an on/off toggle
 		for (let out of this.outlines)
 		{
-			let span = $('<div></div>').appendTo(this.divOutline);
+			let span = $('<div/>').appendTo(this.divOutline);
 			span.css({'position': 'absolute', 'left': '0px', 'top': '0px', 'display': 'none'});
 			$(this.renderOutlines([out], w, h, 0x000000, 0xC0C0C0, true).createSVG()).appendTo(span);
 			this.spanOutlines.push(span);
 		}
 
 		// molecule goes on top
-		let spanMol = $('<div></div>').appendTo(this.divOutline);
+		let spanMol = $('<div/>').appendTo(this.divOutline);
 		spanMol.css({'position': 'absolute', 'left': '0px', 'top': '0px'});
 		$(gfx.createSVG()).appendTo(spanMol);
 
@@ -115,8 +115,8 @@ export class ZoomDotMol extends Dialog
 
 		// now render as text
 
-		let table = $('<table></table>').appendTo(div);
-		let tr = $('<tr></tr>').appendTo(table);
+		let table = $('<table/>').appendTo(div);
+		let tr = $('<tr/>').appendTo(table);
 		tr.append('<th>Row</th>');
 		tr.append('<th>Atoms</th>');
 		tr.append('<th>Bonds</th>');
@@ -126,10 +126,10 @@ export class ZoomDotMol extends Dialog
 		for (let pblk of this.dotpath.paths)
 		{
 			row++;
-			tr = $('<tr></tr>').appendTo(table);
-			let thRow = $('<th></th>').appendTo(tr);
-			let tdAtoms = $('<td></td>').appendTo(tr), tdBonds = $('<td></td>').appendTo(tr);
-			let tdElectrons = $('<td></td>').appendTo(tr), tdCharge = $('<td></td>').appendTo(tr);
+			tr = $('<tr/>').appendTo(table);
+			let thRow = $('<th/>').appendTo(tr);
+			let tdAtoms = $('<td/>').appendTo(tr), tdBonds = $('<td/>').appendTo(tr);
+			let tdElectrons = $('<td/>').appendTo(tr), tdCharge = $('<td/>').appendTo(tr);
 
 			let chg = 0;
 			for (let a of pblk.atoms) chg += this.mol.atomCharge(a);
@@ -192,8 +192,6 @@ export class ZoomDotMol extends Dialog
 			}
 		}
 
-		//this.removeDegenerates(x, y);
-
 		let [px, py] = GeomUtil.outlinePolygon(x, y, 0.5 * scale);
 
 		return {'pblk': pblk, 'px': px, 'py': py, 'ax': ax, 'ay': ay, 'ar': ar};
@@ -208,7 +206,6 @@ export class ZoomDotMol extends Dialog
 		for (let out of outlines)
 		{
 			gfx.drawPoly(out.px, out.py, edgeCol, 1, fillCol, false);
-			//for (let n = 0; n < out.dx.length; n++) gfx.drawOval(out.dx[n], out.dy[n], 1, 1, MetaVector.NOCOLOUR, 0, 0xFF0000);
 
 			if (withAtoms) for (let n = 0; n < out.ar.length; n++) 
 				gfx.drawOval(out.ax[n], out.ay[n], out.ar[n], out.ar[n], MetaVector.NOCOLOUR, 0, 0xE0000000);
@@ -247,15 +244,11 @@ export class ZoomDotMol extends Dialog
 			let dsq = norm2_xy(x[i] - x[j], y[i] - y[j]);
 			if (dsq < threshSq) mask[j] = false;
 		}
-		//console.log('MASK:'+mask);		
 		for (let n = sz - 1; n >= 0; n--) if (!mask[n])
 		{
 			x.splice(n, 1);
 			y.splice(n, 1);
 		}
-		/*let z = '';		
-		for (let n = 0; n < x.length; n++) z += ', {' + x[n].toFixed(2) + 'f,' + y[n].toFixed(2) + 'f}';
-		console.log('PP:'+z);*/
 	}
 }
 

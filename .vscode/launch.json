@@ -15,8 +15,10 @@
 			"console": "integratedTerminal",
 			"args": 
 			[
-				"data/equivalences.ds",
-				//"/tmp/fnord.ds",
+				//"data/equivalences.ds",
+				"data/stereochemistry.ds",
+				//"data/edgecases.ds",
+				"--stereo",
 				"--inchi", "${env:HOME}/bin/inchi-1"
 			],
 			"protocol": "inspector"

@@ -48,7 +48,7 @@ export class AnalyzeResults
 
 	public render(parent:JQuery):void
 	{
-		this.divContent = $('<div></div>').appendTo(parent);
+		this.divContent = $('<div/>').appendTo(parent);
 
 		this.policy = RenderPolicy.defaultColourOnWhite();
 		this.policy.data.pointScale = 15;
@@ -62,27 +62,6 @@ export class AnalyzeResults
 
 	private startAnalysis():void
 	{
-		// !! TEMPORARY special deal...
-		/*let colCorr = this.ds.findColByName('Corrected', DataSheet.COLTYPE_MOLECULE), colBond = this.ds.findColByName('BondAnnot', DataSheet.COLTYPE_STRING);
-		if (colCorr >= 0 && colBond >= 0)
-		{
-			console.log('SPECIAL CORRECTIONS');
-			this.ds.ensureColumn('Formula', DataSheet.COLTYPE_STRING, 'Molecular formula implied by structure');
-			for (let n = this.ds.numRows - 1; n >= 0; n--) if (this.ds.notNull(n, colCorr))
-			{
-				this.ds.insertRow(n + 1);
-				for (let i = 0; i < this.ds.numCols; i++) this.ds.setObject(n + 1, i, this.ds.getObject(n, i));
-				let mol = this.ds.getMolecule(n, colCorr);
-				this.ds.setMolecule(n + 1, 'Molecule', mol);
-				this.ds.setString(n + 1, colBond, 'corrected');
-
-				let formula = MolUtil.molecularFormula(mol);
-				this.ds.setString(n, 'Formula', formula);
-				this.ds.setString(n + 1, 'Formula', formula);
-			}
-			this.ds.deleteColumn(colCorr);
-		}*/
-
 		this.colMol = this.ds.firstColOfType(DataSheetColumn.Molecule);
 		this.colFormula = this.ds.ensureColumn('Formula', DataSheetColumn.String, 'Molecular formula implied by structure');
 		this.colError = this.ds.ensureColumn('Errors', DataSheetColumn.String, 'Fatal flaws with the incoming molecule');
@@ -95,16 +74,16 @@ export class AnalyzeResults
 
 	private setupHeadings():void
 	{
-		this.tableResults = $('<table></table>').appendTo(this.divContent);
+		this.tableResults = $('<table/>').appendTo(this.divContent);
 		this.tableResults.css({'border': 'none'});
 
-		let tr = $('<tr></tr>').appendTo(this.tableResults);
+		let tr = $('<tr/>').appendTo(this.tableResults);
 		tr.css('background-color', '#C0C0C0');
 
 		for (let n = -1; n < this.ds.numCols; n++)
 		{
 			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheetColumn.Integer : this.ds.colType(n);
-			let th = $('<th></th>').appendTo(tr);
+			let th = $('<th/>').appendTo(tr);
 			th.css('text-align', ct == DataSheetColumn.String ? 'left' : 'center');
 			th.text(title);
 		}
@@ -149,13 +128,13 @@ export class AnalyzeResults
 		this.ds.setString(row, this.colWarning, warning.join('\n'));
 		this.ds.setString(row, this.colFixed, fixed.join('\n'));
 
-		let tr = $('<tr></tr>').appendTo(this.tableResults);
+		let tr = $('<tr/>').appendTo(this.tableResults);
 		tr.css('background-color', row % 2 ? '#F0F0F0' : '#F8F8F8');
 
 		for (let n = -1; n < this.ds.numCols; n++)
 		{
 			let title = n < 0 ? '#' : this.ds.colName(n), ct = n < 0 ? DataSheetColumn.Integer : this.ds.colType(n);
-			let td = $('<td></td>').appendTo(tr);
+			let td = $('<td/>').appendTo(tr);
 			let align = ct == DataSheetColumn.String ? 'left' : 'center';
 			td.css({'text-align': align, 'vertical-align': 'center', 'white-space': 'pre-wrap'});
 			if (n >= 0) td.css({'margin-left': '0.3em', 'margin-right': '0.3em'});
@@ -173,7 +152,7 @@ export class AnalyzeResults
 					new DrawMolecule(layout, gfx).draw();
 					gfx.normalise();
 
-					let div = $('<div style="display: inline-block; position: relative;"></div>').appendTo(td);
+					let div = $('<div style="display: inline-block; position: relative;"/>').appendTo(td);
 					let domSVG = $(gfx.createSVG()).appendTo(div);
 				}
 				else td.html('<i>source</i>'); // only want to show the main molecule
@@ -183,7 +162,7 @@ export class AnalyzeResults
 			// special deal for formula
 			if (n == this.colFormula && this.ds.isNull(row, n))
 			{
-				let divBtn = $('<div></div>').appendTo(td);
+				let divBtn = $('<div/>').appendTo(td);
 				divBtn.css({'text-align': 'center'});
 				let btnFormula = $('<button class="wmk-button wmk-button-default">Use</button>').appendTo(divBtn);
 				btnFormula.click(() => 
