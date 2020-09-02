@@ -45,6 +45,7 @@ export class ExportContent
 		let outDS = new DataSheet();
 		let outMol = outDS.appendColumn('Molecule', DataSheetColumn.Molecule, '');
 		let outGroup = outDS.appendColumn('Group', DataSheetColumn.Integer, '');
+		let outHash = outDS.appendColumn('Hash', DataSheetColumn.String, '');
 
 		let appendMolecule = (mol:Molecule, grp:number):void =>
 		{
@@ -196,6 +197,7 @@ export class ExportContent
 	{
 		let colMol = ds.findColByName('Molecule');
 		let colGroup = ds.findColByName('Group');
+		let colHash = ds.findColByName('Hash');
 
 		let molecules:Molecule[] = [], hashes:string[] = [];
 		let sz = ds.numRows;
@@ -206,6 +208,7 @@ export class ExportContent
 			let hash = new DotHash(new DotPath(mol), this.stereochemistry).calculate();
 			molecules.push(mol);
 			hashes.push(hash);
+			ds.setString(n, colHash, hash);
 		}
 
 		for (let i = 0; i < sz - 1; i++) for (let j = i + 1; j < sz; j++)
@@ -231,7 +234,7 @@ export class ExportContent
 	}
 
 	// temporary utility method (not relevant to the rest of this class)
-	private enumeratePerms():void
+	/*private enumeratePerms():void
 	{
 		let perms = Permutation.allPermutations(5).filter((perm) => perm[0] == 0 || perm[3] == 0);
 		outer: for (let i = perms.length - 1; i >= 0; i--)
@@ -262,8 +265,7 @@ export class ExportContent
 			}
 		}
 		console.log('OCT perms:'+perms.length+' ==> '+JSON.stringify(perms));
-
-	}
+	}*/
 }
 
 /* EOF */ }

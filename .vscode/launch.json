@@ -16,8 +16,8 @@
 			"args": 
 			[
 				//"data/equivalences.ds",
-				//"data/stereochemistry.ds",
-				"data/edgecases.ds",
+				"data/stereochemistry.ds",
+				//"data/edgecases.ds",
 				"--stereo",
 				"--inchi", "${env:HOME}/bin/inchi-1"
 			],

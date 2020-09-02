@@ -144,17 +144,6 @@ export class DotCompose
 		// look for previously assigned orders from stereochemistry within the same ring block, which can infer further disambiguation
 		let prevOrder = Vec.numberArray(0, sz);
 		for (let bfs of this.walkouts) Vec.addToArray(prevOrder, bfs);
-		/*for (let i of rubric) if (i >= 0)
-		{
-			for (let bfs of this.walkouts) if (bfs[i] > 0)
-			{
-				if (prevOrder[i] > 0) {prevOrder[i] = 0; break;}
-				prevOrder[i] = bfs[i];
-			}
-		}*/
-//console.log('\n-----FOR IDX:'+idx);
-//for (let bfs of this.walkouts) console.log('BFS:'+bfs);
-//console.log('PREVORDER:'+prevOrder);
 
 		let generateParity = (posFirst:number, adjFirst:number):[number[], number[]] =>
 		{
@@ -186,7 +175,6 @@ export class DotCompose
 			for (let o = 0; o < optionAdj.length; o++)
 			{
 				let adj = optionAdj[o], pri = optionPri[o], eqv = optionEqv[o];
-//console.log('O='+o+' adj='+adj);
 				let score:number[] = [];
 				for (let n of order)
 				{
@@ -194,10 +182,7 @@ export class DotCompose
 					if (adj[n] >= 0 && blk[adj[n]] > 0) gscore = blkgrp.get(blk[adj[n]]) || 0;
 					if (adj[n] >= 0) pscore = prevOrder[adj[n]];
 					score.push(sz * sz * eqv[n] + pscore * sz + gscore);
-//console.log('  n='+n+' eqv='+eqv[n]+' pscore='+pscore+' gscore='+gscore);
 				}
-				//for (let n of order) score.push(pri[n]); // priority used for tiebreaker
-//console.log('  score='+JSON.stringify(score));
 
 				if (bestScore == null || Vec.compareTo(score, bestScore) < 0) [bestScore, bestAdj] = [score, adj];
 			}
@@ -211,11 +196,6 @@ export class DotCompose
 		let posFirst = 0, adjFirst:number[] = [];
 		if (this.rubricBipy[idx])
 		{
-			/*let loweqv = Math.min(rubricEquiv[3], rubricEquiv[4]);
-			posFirst = 3;
-			if (rubricEquiv[3] == loweqv) adjFirst.push(rubric[3]);
-			if (rubricEquiv[4] == loweqv) adjFirst.push(rubric[4]);*/
-
 			let loweqv = Vec.min(rubricEquiv);
 			if (rubricEquiv[3] == loweqv || rubricEquiv[4] == loweqv)
 			{
@@ -300,7 +280,6 @@ export class DotCompose
 	// it introduces an ordering problem which would cause a failure
 	private walkStereoOutward(idx:number, adj:number[]):void
 	{
-//console.log('STEREO:'+idx+' adj:'+adj);
 		const {mol} = this.dot, na = mol.numAtoms;
 		const {atomeqv} = this;
 		let rblk = mol.atomRingBlock(idx + 1);
@@ -324,12 +303,6 @@ export class DotCompose
 		{
 			let modified = false;
 
-			/*let newvisited = 
-			for (let i = 0; i < na; i++) if (!visited[i]) if (mol.atomRingBlock(i + 1) == rblk && bfs[i] == 0)
-			{
-				for (let a of mol.atomAdjList(i + 1)) bfs[i] += bfs[a - 1];
-				if (bfs[i] > 0) visited[i] = modified = true;
-			}*/
 			let newvisited = visited.slice(0);
 			for (let n = 1; n <= mol.numBonds; n++)
 			{
@@ -348,7 +321,6 @@ export class DotCompose
 			visited = newvisited;
 		}
 
-//console.log('  bfs='+bfs);
 		this.walkouts.push(bfs);
 	}
 
