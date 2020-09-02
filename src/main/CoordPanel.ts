@@ -268,7 +268,6 @@ export class CoordPanel extends WindowPanel
 			};
 			this.task = new EquivalenceResults(this.ds, this.callInChI, opt, () => this.finishedResults());
 			this.task.render(areaSummary, areaResults);
-			// TODO: fold AnalyseMolecule features into this 
 		}, 1);
 	}
 

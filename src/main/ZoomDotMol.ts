@@ -192,8 +192,6 @@ export class ZoomDotMol extends Dialog
 			}
 		}
 
-		//this.removeDegenerates(x, y);
-
 		let [px, py] = GeomUtil.outlinePolygon(x, y, 0.5 * scale);
 
 		return {'pblk': pblk, 'px': px, 'py': py, 'ax': ax, 'ay': ay, 'ar': ar};
@@ -208,7 +206,6 @@ export class ZoomDotMol extends Dialog
 		for (let out of outlines)
 		{
 			gfx.drawPoly(out.px, out.py, edgeCol, 1, fillCol, false);
-			//for (let n = 0; n < out.dx.length; n++) gfx.drawOval(out.dx[n], out.dy[n], 1, 1, MetaVector.NOCOLOUR, 0, 0xFF0000);
 
 			if (withAtoms) for (let n = 0; n < out.ar.length; n++) 
 				gfx.drawOval(out.ax[n], out.ay[n], out.ar[n], out.ar[n], MetaVector.NOCOLOUR, 0, 0xE0000000);
@@ -247,15 +244,11 @@ export class ZoomDotMol extends Dialog
 			let dsq = norm2_xy(x[i] - x[j], y[i] - y[j]);
 			if (dsq < threshSq) mask[j] = false;
 		}
-		//console.log('MASK:'+mask);		
 		for (let n = sz - 1; n >= 0; n--) if (!mask[n])
 		{
 			x.splice(n, 1);
 			y.splice(n, 1);
 		}
-		/*let z = '';		
-		for (let n = 0; n < x.length; n++) z += ', {' + x[n].toFixed(2) + 'f,' + y[n].toFixed(2) + 'f}';
-		console.log('PP:'+z);*/
 	}
 }
 

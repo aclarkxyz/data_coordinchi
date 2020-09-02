@@ -620,42 +620,6 @@ export class DotHash
 		return [type, ...bestPri];
 	}
 
-	// for a given node index at some point along a breadth first walk, provide a differentiator based on stereo rubric: the mask indicates which of the atoms have
-	// already been visited, and these are used as a priority
-	/*private stereoPriority(idx:number, pri:number[], mask:boolean[]):number
-	{
-		let rubric:number[] = null, perms:number[][] = null;
-		if (this.rubricTetra[idx]) [rubric, perms] = [this.rubricTetra[idx], Stereochemistry.RUBRIC_EQUIV_TETRA];
-		else if (this.rubricSquare[idx]) [rubric, perms] = [this.rubricSquare[idx], Stereochemistry.RUBRIC_EQUIV_SQUARE];
-		else if (this.rubricBipy[idx]) [rubric, perms] = [this.rubricBipy[idx], Stereochemistry.RUBRIC_EQUIV_BIPY];
-		else if (this.rubricOcta[idx]) [rubric, perms] = [this.rubricOcta[idx], Stereochemistry.RUBRIC_EQUIV_OCTA];
-		else return 0;
-
-		let bump = this.g.numNodes * 2;
-		let basePri = rubric.map((r) => r < 0 ? 0 : pri[r] - (mask[r] ? bump : 0));
-		let bestOrder = rubric, bestPri = basePri;
-
-		skip: for (let n = 1; n < perms.length; n++)
-		{
-			let lookOrder = Vec.idxGet(rubric, perms[n]), lookPri = Vec.idxGet(basePri, perms[n]);
-			for (let i = 0; i < basePri.length; i++)
-			{
-				if (lookPri[i] < bestPri[i]) break;
-				if (lookPri[i] > bestPri[i]) continue skip;
-			}
-			[bestOrder, bestPri] = [lookOrder, lookPri];
-		}
-
-		let stereoPri = 0;
-		bump = bestOrder.length;
-		for (let n = 0; n < bestOrder.length; n++)
-		{
-			stereoPri += bestOrder[n] * bump;
-			bump *= 2;
-		}
-		return stereoPri;
-	}*/
-
 	// for an array whereby each item is an array of numbers (arbitrary length), sorts these into a unique set and translates into an overall index, starting at 1
 	private assignPriority(priseq:number[][]):number[]
 	{
