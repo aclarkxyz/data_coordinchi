@@ -13,13 +13,12 @@
 
 namespace WebMolKit /* BOF */ {
 
-$ = require('./jquery.js');
-
 /*
 	Startup: gets the ball rolling, and provide some high level window handling.
 */
 
 let BASE_APP = ''; // base URL location for the app's program files (could be URL or filename)
+$ = (window as any)['$'] || require('./jquery.js');
 
 export function runCoordInChI(rootID:string):void
 {
