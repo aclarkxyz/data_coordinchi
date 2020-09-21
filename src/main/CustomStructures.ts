@@ -45,7 +45,7 @@ export class CustomStructures
 
 	// ------------ public methods ------------
 
-	constructor(private callInChI:CallInChI, private proxyClip:ClipboardProxy)
+	constructor(private callInChI:CallInChI, private proxyClip:ClipboardProxy, private stereochemistry:boolean)
 	{
 		this.policy.data.pointScale = 15;
 	}
@@ -79,7 +79,7 @@ export class CustomStructures
 		let inchi:string = null;
 		if (this.callInChI.isAvailable) inchi = (await this.callInChI.calculate([molExpanded]))[0];
 
-		let dhash = new DotHash(new DotPath(molExpanded), false).calculate();
+		let dhash = new DotHash(new DotPath(molExpanded), this.stereochemistry).calculate();
 
 		let card = new MoleculeCard(mol, molExpanded, inchi, dhash, 300, this.policy);
 		card.generate();

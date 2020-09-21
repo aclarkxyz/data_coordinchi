@@ -287,7 +287,7 @@ export class CoordPanel extends WindowPanel
 	{
 		if (!this.custom)
 		{
-			this.custom = new CustomStructures(this.callInChI, this.proxyClip);
+			this.custom = new CustomStructures(this.callInChI, this.proxyClip, this.modeStereo);
 			this.custom.render(this.divCustom);
 		}
 		this.custom.sketchNew();
