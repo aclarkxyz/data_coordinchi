@@ -66,7 +66,7 @@ export class DotCompose
 			if (this.chgNumer[n] > 0)
 			{
 				label += '+' + this.chgNumer[n];
-				if (this.chgDenom[n] != 1) label += '/' + this.chgDenom[n];
+				if (this.chgDenom[n] != 1) label += ':' + this.chgDenom[n];
 			}
 			let par = this.parityString(n);
 			if (par) label += '!' + par;

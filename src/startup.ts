@@ -10,6 +10,7 @@
 
 ///<reference path='decl/node.d.ts'/>
 ///<reference path='main/CoordPanel.ts'/>
+///<reference path='main/Console.ts'/>
 
 namespace WebMolKit /* BOF */ {
 
@@ -18,7 +19,13 @@ namespace WebMolKit /* BOF */ {
 */
 
 let BASE_APP = ''; // base URL location for the app's program files (could be URL or filename)
-$ = (window as any)['$'] || require('./jquery.js');
+
+//$ = (window as any)['$'] || require('./jquery.js');
+if(typeof window !== 'undefined') 
+	$ = (window as any)['$'] || require('./jquery.js');
+else
+	$ = require('./jquery.js');
+
 
 export function runCoordInChI(rootID:string):void
 {
