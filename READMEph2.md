@@ -390,3 +390,11 @@ The SDfiles contain all of the molecules in the corresponding training file _and
 Prior to writing the SDfiles, the internal algorithm is checked to ensure that it has a 100% compliance rate, and it also carries out a read/write cycle to ensure that the structures (which are internally represented as SketchEl molecules in an XML datasheet) do not lose any essential information when they are exported as Molfiles.
 
 The SDfiles are written using standard Molfile CTAB features, including the use of bond type #8 ("any") and the valence field, which is used to control hydrogen atom count. Any external validation tools must be able to handle these fields properly. There is one small but important extension to the Molfile CTAB format: the specification indicates that wedge bonds (up/down/unknown) are always single. This constraint is not workable for many inorganic complexes, which have a number of ligands that are best represented as zero-order bonds, and need to indicate their stereochemistry using wedges, and for this reason the constraint is ignored: wedges are used as-drawn regardless of bond order. If this is disallowed by a toolkit of choice, some workaround will need to be devised.
+
+### Command Line Invocation
+
+To evaluate an SDfile containing structures, make sure that NodeJS is installed, and execute:
+
+```node app/console.sdf {sourcefile.sdf}```
+
+A single line with a coordination InChI layer will be emitted for each molecule in the SDfile.
