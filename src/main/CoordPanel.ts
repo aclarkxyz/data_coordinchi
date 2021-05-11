@@ -70,7 +70,7 @@ export class CoordPanel extends WindowPanel
 		this.proxyClip.setString = (str:string):void => clipboard.writeText(str);
 		this.proxyClip.canAlwaysGet = ():boolean => true;
 
-		const remote = require('electron').remote;
+		const remote = require('@electron/remote')
 		this.modeStereo = !!remote.getGlobal('PARAM_STEREO');
 		this.callInChI = new CallInChI(remote.getGlobal('INCHI_EXEC'), this.modeStereo);
 
@@ -220,8 +220,7 @@ export class CoordPanel extends WindowPanel
 
 	private pickFilename():void
 	{
-		const electron = require('electron');
-		const dialog = electron.remote.dialog; 
+		const {dialog} = require('@electron/remote');
 		let params:any =
 		{
 			'title': 'Open DataSheet',
@@ -230,7 +229,7 @@ export class CoordPanel extends WindowPanel
 				{'name': 'Molecular DataSheet', 'extensions': ['ds']}
 			]
 		};
-		dialog.showOpenDialog(params).then(value =>
+		dialog.showOpenDialog(params).then((value:any) =>
 		{
 			if (value.canceled) return;
 			this.selectFile(value.filePaths[0]);
@@ -354,8 +353,8 @@ export class CoordPanel extends WindowPanel
 	// write the current file back to disk
 	private saveDataFile():void
 	{
-		const electron = require('electron'), fs = require('fs');
-		const dialog = electron.remote.dialog; 
+		const {fs} = require('fs');
+		const {dialog} = require('@electron/remote');
 		let params:any =
 		{
 			'title': 'Save Dataset',
@@ -366,7 +365,7 @@ export class CoordPanel extends WindowPanel
 				{'name': 'MDL SDfile', 'extensions': ['sdf']}
 			]
 		};
-		dialog.showSaveDialog(params).then(value =>
+		dialog.showSaveDialog(params).then((value:any) =>
 		{
 			if (value.canceled) return;
 			
@@ -399,8 +398,8 @@ export class CoordPanel extends WindowPanel
 		let body = this.divResults[0].outerHTML;
 		let html = '<html>\n<head>' + head + '</head>\n<body>\n' + body + '\n</body>\n</html>';
 
-		const electron = require('electron'), fs = require('fs');
-		const dialog = electron.remote.dialog; 
+		const fs = require('fs');
+		const {dialog} = require('@electron/remote');
 		let params:any =
 		{
 			'title': 'Save Results as HTML',
@@ -409,7 +408,7 @@ export class CoordPanel extends WindowPanel
 				{'name': 'HTML', 'extensions': ['html']},
 			]
 		};
-		dialog.showSaveDialog(params).then(value =>
+		dialog.showSaveDialog(params).then((value:any) =>
 		{
 			if (value.canceled) return;
 			

@@ -112,15 +112,15 @@ export class CustomStructures
 
 	private contextMenu(card:MoleculeCard):void
 	{
-		let electron = require('electron');
-		let menu = new electron.remote.Menu();
+		const remote = require('@electron/remote');
+		let menu = new remote.Menu();
 
-		menu.append(new electron.remote.MenuItem({'label': 'Copy', 'click': () => this.copyNative(card)}));
-		menu.append(new electron.remote.MenuItem({'label': 'Copy Molfile V2000', 'click': () => this.copyMDLV2000(card)}));
-		//menu.append(new electron.remote.MenuItem({'label': 'Copy Molfile V3000', 'click': () => this.copyMDLV3000()}));
-		menu.append(new electron.remote.MenuItem({'label': 'Remove', 'click': () => this.removeStructure(card)}));
+		menu.append(new remote.MenuItem({'label': 'Copy', 'click': () => this.copyNative(card)}));
+		menu.append(new remote.MenuItem({'label': 'Copy Molfile V2000', 'click': () => this.copyMDLV2000(card)}));
+		//menu.append(new remote.MenuItem({'label': 'Copy Molfile V3000', 'click': () => this.copyMDLV3000()}));
+		menu.append(new remote.MenuItem({'label': 'Remove', 'click': () => this.removeStructure(card)}));
 
-		menu.popup({'window': electron.remote.getCurrentWindow()});
+		menu.popup({'window': remote.getCurrentWindow()});
 	}
 
 	private copyNative(card:MoleculeCard):void

@@ -161,7 +161,7 @@ export class EquivalenceResults
 				for (let b = 1; b <= molExpanded.numBonds; b++) if (molExpanded.bondExtra(b).indexOf('xAromatic') >= 0)
 				{
 					let list = molExpanded.bondTransient(b);
-					list.push(ForeignMoleculeExtra.BOND_AROMATIC);
+					list.push(ForeignMoleculeExtra.BondAromatic);
 					molExpanded.setBondTransient(b, list);
 				}
 

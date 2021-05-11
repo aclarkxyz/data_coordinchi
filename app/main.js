@@ -8,7 +8,9 @@ const fs = require('fs');
 const electron = require('electron');
 const {app, BrowserWindow} = electron;
 
+app.allowRendererProcessReuse = true;
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true;
+require('@electron/remote/main').initialize();
 
 app.on('window-all-closed', function() 
 {
@@ -32,7 +34,7 @@ for (let n = 0; n < argv.length; n++)
 }
 if (files.length == 0) files.push(null);
 
-const WEBPREF = {'nodeIntegration': true, 'enableRemoteModule': true, 'spellcheck': false};
+const WEBPREF = {'nodeIntegration': true, 'contextIsolation': false, 'enableRemoteModule': true, 'spellcheck': false};
 const ICONFN = __dirname + '/img/icon.png';
 const BROWSER_PARAMS = {'width': 1200, 'height': 900, 'icon': ICONFN, 'webPreferences': WEBPREF};
 const INIT_URL = 'file://' + __dirname + '/index.html';

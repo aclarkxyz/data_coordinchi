@@ -1,17 +1,15 @@
 {
   "name": "placeholder",
   "version": "0.0.0",
-  "devDependencies": 
-  {
-    "electron": "^5.0.1",
+  "devDependencies": {
+    "@electron/remote": "",
+    "electron": "^12.0",
     "electron-packager": "^8.1.0",
-    "typescript": "^2.6.0"
+    "typescript": "^4.0"
   },
-  "build": 
-  {
+  "build": {
     "appId": "org.iupac.inchi.CoordInChI",
-    "mac": 
-    {
+    "mac": {
       "category": "public.app-category.productivity"
     }
   },

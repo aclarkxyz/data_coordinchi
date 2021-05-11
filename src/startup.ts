@@ -71,9 +71,9 @@ export function runCoordInChI(rootID:string):void
 // high level functionality for opening a window, with a given panel as content
 export function openNewWindow(panelClass:string, filename?:string):void
 {
-	const electron = require('electron');
-	const WEBPREF = {'nodeIntegration': true};
-	let bw = new electron.remote.BrowserWindow({'width': 800, 'height': 700, 'icon': 'app/img/icon.png', 'webPreferences': WEBPREF});
+	const WEBPREF = {'nodeIntegration': true, 'contextIsolation': false, 'enableRemoteModule': true, 'spellcheck': false};
+	const remote = require('@electron/remote');
+	let bw = new remote.BrowserWindow({'width': 800, 'height': 700, 'icon': 'app/img/icon.png', 'webPreferences': WEBPREF});
 	let url = BASE_APP + '/index.html?panel=' + panelClass;
 	if (filename) url += '&fn=' + encodeURIComponent(filename);
 	bw.loadURL(url);
